@@ -69,7 +69,21 @@ SENSORS = {
     }
 }
 
-sensor_help_text = """| Sensor | Shutter | Pixel | MP |"""
+sensor_help_text = """
+| Sensor | Shutter | Pixel (µm) | MP | W x H | 2x2 Pixel | 2x2 MP | 2x2 WxH |
+| :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
+"""
+for name, s in SENSORS.items():
+    short_name = name.split(' ')[0]
+    shutter = s['shutter']
+    px = s['pixel_size']
+    w, h = s['width_px'], s['height_px']
+    mp = (w * h) / 1_000_000
+    bin_px = px * 2
+    bin_mp = mp / 4
+    bin_w = int(w / 2)
+    bin_h = int(h / 2)
+    sensor_help_text += f"| {short_name} | {shutter} | {px} | {mp:.1f} | {w}x{h} | {bin_px} | {bin_mp:.2f} | {bin_w}x{bin_h} |\n"
 
 # --- CALCULATION LOGIC ---
 def find_nearest(array, value):
