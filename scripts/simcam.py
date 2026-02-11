@@ -504,6 +504,11 @@ sensor = SENSORS[sensor_name]
 
 use_binning = st.sidebar.checkbox("Enable 2x2 Binning", value=False, help="Combines 4 pixels into 1. Increases light sensitivity but halves resolution.")
 
+rotate_90 = st.sidebar.checkbox("Rotate Camera 90°", value=False, help="Swaps the sensor width and height (Portrait Mode).")
+if rotate_90:
+    sensor = sensor.copy()
+    sensor["width_px"], sensor["height_px"] = sensor["height_px"], sensor["width_px"]
+
 is_stereo = st.sidebar.checkbox("Stereoscopic (Dual Camera)", value=False, help="Enable calculation for dual-camera setup.")
 stereo_base_val = 0
 stereo_align = "Horizontal"
@@ -554,7 +559,7 @@ st.sidebar.caption(f"Ref: Golf Ball Dia = {BALL_DIAMETER_MM} mm")
 if 'focal' not in st.session_state: st.session_state.focal = 6.0
 if 'aperture' not in st.session_state: st.session_state.aperture = 1.2
 if 'distance' not in st.session_state: st.session_state.distance = 430
-if 'dist_parallel' not in st.session_state: st.session_state.dist_parallel = 127.0 # Placeholder
+if 'dist_parallel' not in st.session_state: st.session_state.dist_parallel = 127.0 # Default = 1st ball - 1 inch
 if 'focus_offset' not in st.session_state: st.session_state.focus_offset = 0
 if 'cam_z' not in st.session_state: st.session_state.cam_z = 0
 if 'last_club_state' not in st.session_state: st.session_state.last_club_state = include_club
