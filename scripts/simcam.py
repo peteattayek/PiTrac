@@ -26,10 +26,6 @@ BASE_PARAMS = {
     "binning": False
 }
 
-# REAL WORLD LENS CATALOG
-REAL_FOCAL_LENGTHS = [2.1, 2.5, 2.8, 3.6, 4.0, 6.0, 8.0, 12.0, 16.0, 25.0]
-REAL_APERTURES = [1.2, 1.4, 1.6, 1.8, 2.0, 2.4, 2.8, 4.0, 5.6, 8.0]
-
 # SENSOR DATABASE
 SENSORS = {
     "IMX296 (1.6MP Global Shutter)": {
@@ -85,7 +81,130 @@ for name, s in SENSORS.items():
     bin_h = int(h / 2)
     sensor_help_text += f"| {short_name} | {shutter} | {px} | {mp:.1f} | {w}x{h} | {bin_px} | {bin_mp:.2f} | {bin_w}x{bin_h} |\n"
 
+# --- LENS DATABASE ---
+RAW_LENS_DATABASE = [
+    ("Varifocal 2.8-12mm", (2.8, 12.0), (1.6, 16.0), 9.0),
+    ("Arducam LN081", 4.5, 2.0, 9.0), ("Arducam LN079", 5.5, 2.8, 9.0),
+    ("Arducam LN078", 8.5, 3.0, 9.0), ("Arducam LN077", 12.0, 2.8, 9.0),
+    ("Arducam LN076", 16.0, 2.8, 9.0), ("Arducam LN075", 25.0, 2.8, 9.0),
+    ("Arducam M25156H18", 1.56, 2.0, 7.7), ("Arducam M27210H08", 2.1, 2.0, 6.6),  
+    ("Arducam M23272M14", 2.27, 2.5, 7.7), ("Arducam M27280M07S", 2.8, 2.8, 6.6), 
+    ("Arducam M23356H09", 3.56, 2.5, 7.7), ("Arducam M25360H06S", 3.6, 3.0, 7.1), 
+    ("Arducam M2306ZM13", 6.0, 2.0, 7.7), ("Arducam M2506ZH04", 6.0, 2.0, 7.1),  
+    ("Arducam M2508ZH02", 8.0, 2.0, 7.1), ("Arducam M2512ZH03", 12.0, 2.0, 7.1), 
+    ("Arducam M2516ZH01", 16.0, 2.0, 7.1), ("Arducam M2025ZM02", 25.0, 2.0, 7.7), 
+    ("Arducam CS 6mm F1.2", 6.0, (1.2, 16.0), 8.0), ("Arducam CS 6mm", 6.0, 1.4, 7.7),
+    ("Arducam CS 8mm", 8.0, 1.4, 7.7), ("Arducam CS 12mm", 12.0, 1.6, 7.7),
+    ("Arducam CS 16mm", 16.0, 1.6, 7.7), ("Arducam CS 25mm", 25.0, 1.2, 7.7),
+    ("Arducam C 16mm", 16.0, (1.6, 16.0), 11.0), ("Arducam C 25mm", 25.0, (1.4, 16.0), 16.0),
+    ("Arducam C 35mm", 35.0, (1.6, 16.0), 11.0), ("Arducam C 50mm", 50.0, (1.8, 16.0), 11.0), 
+    ("CIL207", 0.8, 1.9, 4.0), ("CIL208", 0.9, 2.2, 2.9), ("CIL212", 1.1, 2.2, 3.9),
+    ("CIL273", 1.3, 2.0, 5.8), ("CIL293", 1.3, 2.2, 5.4), ("CIL914", 1.4, 2.3, 4.5),
+    ("CIL215", 1.5, 2.0, 4.2), ("CIL216", 1.55, 2.2, 4.7), ("CIL217", 1.7, 2.7, 5.7),
+    ("CIL237", 1.7, 2.2, 5.5), ("CIL018", 1.8, 2.8, 7.0), ("CIL019", 1.8, 1.6, 6.6),
+    ("CIL239", 1.8, 2.0, 5.2), ("CIL818", 1.8, 2.0, 5.2), ("CIL220-F2.3", 1.83, 2.3, 6.8),
+    ("CIL220-F2.8", 1.83, 2.8, 6.8), ("CIL219", 1.9, 2.5, 6.3), ("CIL290", 1.9, 2.2, 5.7),
+    ("CIL819", 1.9, 2.0, 5.9), ("CIL281", 2.0, 1.8, 6.5), ("CIL821", 2.1, 2.4, 6.8),
+    ("CIL023", 2.2, 2.2, 7.8), ("CIL222", 2.2, 2.0, 6.6), ("CIL282", 2.2, 1.8, 6.8),
+    ("CIL292", 2.3, 2.1, 7.2), ("CIL324", 2.4, 1.9, 7.0), ("CIL825", 2.5, 2.0, 6.8),
+    ("CIL926", 2.5, 2.5, 7.4), ("CIL028-F2.3", 2.6, 2.3, 8.0), ("CIL028-F2.6", 2.6, 2.6, 8.0),
+    ("CIL027", 2.7, 2.8, 8.2), ("CIL227", 2.7, 2.5, 8.2), ("CIL327-F1.5", 2.7, 1.5, 7.1),
+    ("CIL327-F1.8", 2.7, 1.8, 7.1), ("CIL093", 2.8, 2.4, 7.8), ("CIL329", 2.8, 2.0, 7.2),
+    ("CIL326", 2.9, 1.4, 6.8), ("CIL829", 2.9, 2.5, 6.8), ("CIL330", 2.94, 2.6, 8.0),
+    ("CIL391", 2.94, 2.6, 8.0), ("CIL030", 3.0, 2.1, 9.4), ("CIL232", 3.1, 1.9, 9.1),
+    ("CIL332", 3.2, 1.8, 7.2), ("CIL034-F2.3", 3.24, 2.3, 8.2), ("CIL034-F2.7", 3.24, 2.7, 8.2),
+    ("CIL034-F4.2", 3.24, 4.2, 8.2), ("CIL036", 3.3, 2.2, 7.2), ("CIL394", 3.45, 2.1, 7.6),
+    ("CIL333", 3.5, 2.4, 8.8), ("CIL334", 3.5, 2.2, 9.4), ("CIL335", 3.5, 1.8, 7.8),
+    ("CIL336", 3.6, 1.9, 7.4), ("CIL337", 3.6, 1.6, 7.5), ("CIL038", 3.8, 3.0, 7.8),
+    ("CIL039", 3.9, 2.8, 8.0), ("CIL339", 3.9, 1.6, 9.3), ("CIL340", 4.0, 2.0, 9.0),
+    ("CIL341", 4.0, 2.0, 9.4), ("CIL042", 4.2, 1.9, 9.4), ("CIL043", 4.3, 3.2, 8.1),
+    ("CIL046", 4.4, 2.0, 9.1), ("CIL343", 4.4, 2.3, 8.8), ("CIL045", 4.5, 3.5, 7.2),
+    ("CIL344-F1.9", 4.5, 1.9, 11.0), ("CIL344-F2.7", 4.5, 2.7, 11.0), ("CIL948", 4.8, 2.0, 7.6),
+    ("CIL052", 5.2, 3.4, 9.3), ("CIL355", 5.5, 1.8, 7.0), ("CIL056", 5.5, 2.4, 8.0),
+    ("CIL857", 5.7, 3.0, 7.0), ("CIL359", 5.78, 1.6, 7.5), ("CIL358", 5.8, 1.9, 9.3),
+    ("CIL059-F1.7", 5.9, 1.7, 9.3), ("CIL059-F4.0", 5.9, 4.0, 9.3), ("CIL059-F5.6", 5.9, 5.6, 9.3),
+    ("CIL061", 6.0, 1.9, 7.4), ("CIL361", 6.1, 1.8, 7.4), ("CIL062-F2.8", 6.2, 2.8, 9.0),
+    ("CIL062-F4.0", 6.2, 4.0, 9.0), ("CIL068", 6.8, 2.5, 8.8), ("CIL368", 6.8, 1.8, 9.4),
+    ("CIL872", 7.2, 2.5, 8.5), ("CIL078", 7.8, 2.0, 9.3), ("CIL382-F2.0", 7.8, 2.0, 7.4),
+    ("CIL382-F5.6", 7.8, 5.6, 7.4), ("CIL079", 7.9, 2.0, 7.6), ("CIL083", 8.0, 2.8, 9.0),
+    ("CIL085-F3.0", 8.2, 3.0, 8.8), ("CIL085-F4.4", 8.2, 4.4, 8.8), ("CIL092", 9.2, 2.6, 9.3),
+    ("CIL104", 10.4, 3.8, 7.2), ("CIL122", 12.0, 2.0, 9.3), ("CIL120", 12.2, 2.4, 8.0),
+    ("CIL123", 12.5, 2.3, 8.0), ("CIL125-F2.4", 12.5, 2.4, 8.2), ("CIL125-F3.6", 12.5, 3.6, 8.2),
+    ("CIL125-F8.0", 12.5, 8.0, 8.2), ("CIL142-F2.6", 14.4, 2.6, 9.3), ("CIL142-F4.1", 14.4, 4.1, 9.3),
+    ("CIL142-F5.2", 14.4, 5.2, 9.3), ("CIL160-F1.9", 16.0, 1.9, 8.4), ("CIL160-F2.8", 16.0, 2.8, 8.4),
+    ("CIL160-F4.0", 16.0, 4.0, 8.4), ("CIL160-F5.6", 16.0, 5.6, 8.4), ("CIL161", 16.0, 2.0, 8.0),
+    ("CIL178", 17.8, 2.0, 7.2), ("CIL190", 19.0, 1.6, 7.2), ("CIL121-F2.8", 21.8, 2.8, 9.3),
+    ("CIL121-F5.9", 21.8, 5.9, 9.3), ("CIL250", 25.0, 2.4, 9.4), ("CIL350", 35.0, 2.4, 11.0),
+    ("CIL051", 50.0, 2.8, 9.4), ("CIL075", 75.0, 3.5, 9.4),
+    ("CIL570 (C-Mt)", 4.0, (2.0, 16.0), 9.3), ("CIL571 (C-Mt)", 6.0, (2.1, 16.0), 9.3),
+    ("CIL508 (C-Mt)", 8.5, (2.4, 16.0), 17.6), ("CIL521 (C-Mt)", 8.0, (1.5, 16.0), 11.0),
+    ("CIL531 (C-Mt)", 8.0, (2.8, 16.0), 11.0), ("CIL512 (C-Mt)", 12.0, (2.8, 16.0), 17.6),
+    ("CIL522 (C-Mt)", 12.0, (1.4, 16.0), 11.0), ("CIL532 (C-Mt)", 12.0, (2.0, 16.0), 11.0),
+    ("CIL542 (C-Mt)", 12.0, (2.8, 16.0), 17.6), ("CIL552 (C-Mt)", 12.0, (2.8, 16.0), 19.3),
+    ("CIL513 (C-Mt)", 16.0, (2.8, 16.0), 17.6), ("CIL523 (C-Mt)", 16.0, (1.4, 16.0), 11.0),
+    ("CIL533 (C-Mt)", 16.0, (2.0, 16.0), 11.0), ("CIL553 (C-Mt)", 16.0, (2.8, 16.0), 19.3),
+    ("CIL514 (C-Mt)", 25.0, (2.8, 16.0), 17.6), ("CIL525 (C-Mt)", 25.0, (1.4, 16.0), 11.0),
+    ("CIL534 (C-Mt)", 25.0, (2.0, 16.0), 11.0), ("CIL544 (C-Mt)", 25.0, (1.8, 16.0), 17.6),
+    ("CIL554 (C-Mt)", 25.0, (2.6, 16.0), 19.3), ("CIL515 (C-Mt)", 35.0, (2.8, 16.0), 17.6),
+    ("CIL526 (C-Mt)", 35.0, (1.5, 16.0), 11.0), ("CIL535 (C-Mt)", 35.0, (2.0, 16.0), 11.0),
+    ("CIL545 (C-Mt)", 35.0, (2.8, 16.0), 17.6), ("CIL555 (C-Mt)", 35.0, (2.6, 16.0), 19.3),
+    ("CIL536 (C-Mt)", 50.0, (2.8, 16.0), 11.0), ("CIL546 (C-Mt)", 50.0, (2.8, 16.0), 17.6),
+    ("CIL556 (C-Mt)", 50.0, (2.8, 16.0), 19.3), ("CIL557 (C-Mt)", 75.0, (3.0, 16.0), 19.3),
+    ("CIL579 (C-Mt)", 75.0, (3.0, 16.0), 9.0), ("CIL505 (C-Mt)", 2.2, (2.2, 16.0), 14.2)
+]
+
+# --- EXPANDED LENS DATABASE ---
+LENS_DATABASE = []
+for model, focal_data, aper_data, img_circle in RAW_LENS_DATABASE:
+    # 1. Expand Focal Lengths
+    if isinstance(focal_data, tuple):
+        min_f, max_f = focal_data
+        focals = []
+        curr_f = min_f
+        while curr_f <= max_f + 0.001:
+            focals.append(round(curr_f, 1))
+            curr_f += 0.1
+    else:
+        focals = [focal_data]
+
+    # 2. Expand Apertures
+    if isinstance(aper_data, tuple):
+        min_a, max_a = aper_data
+        apers = []
+        curr_a = min_a
+        while curr_a <= max_a + 0.001:
+            apers.append(round(curr_a, 1))
+            curr_a += 0.1
+    else:
+        apers = [aper_data]
+    
+    is_varifocal_lens = isinstance(focal_data, tuple)
+
+    # 3. Create Combinations
+    for f in focals:
+        for a in apers:
+            LENS_DATABASE.append((model, f, a, img_circle, is_varifocal_lens))
+
 # --- CALCULATION LOGIC ---
+def get_sensor_diagonal_mm(sensor):
+    w_mm = sensor['width_px'] * (sensor['pixel_size'] / 1000)
+    h_mm = sensor['height_px'] * (sensor['pixel_size'] / 1000)
+    return math.sqrt(w_mm**2 + h_mm**2)
+
+def get_compatible_lenses(sensor, min_coverage_pct=100.0, include_varifocal=True):
+    diag = get_sensor_diagonal_mm(sensor)
+    threshold = diag * (min_coverage_pct / 100.0)
+    
+    filtered_lenses = []
+    for l in LENS_DATABASE:
+        if l[3] < threshold:
+            continue
+        is_vf_lens = l[4]
+        if is_vf_lens and not include_varifocal:
+            continue
+        filtered_lenses.append(l)
+    return filtered_lenses
+
 def find_nearest(array, value):
     idx = (math.fabs(array[0] - value))
     near = array[0]
@@ -108,11 +227,9 @@ def calculate_metrics(sensor, binning, wavelength, focal, f_stop, dist,
     sensor_w = width_px * px_size_mm
     sensor_h = height_px * px_size_mm
     
-    # Raw FOV at Distance D
     raw_fov_w = (sensor_w * dist) / focal
     raw_fov_h = (sensor_h * dist) / focal
     
-    # Effective Overlap FOV
     if is_stereo:
         if stereo_align == "Horizontal":
             eff_fov_w = max(0, raw_fov_w - stereo_base)
@@ -124,11 +241,9 @@ def calculate_metrics(sensor, binning, wavelength, focal, f_stop, dist,
         eff_fov_w = raw_fov_w
         eff_fov_h = raw_fov_h
     
-    # FOV Position
     if fixed_y_center is not None:
         fov_center = fixed_y_center
     else:
-        # Default Baseline Logic (Only used for baseline calculation, not sliders)
         if include_club:
             fov_bottom = -152.4
             fov_center = fov_bottom + (eff_fov_w / 2)
@@ -139,13 +254,10 @@ def calculate_metrics(sensor, binning, wavelength, focal, f_stop, dist,
     fov_top = fov_center + (eff_fov_w / 2)
     fov_bottom = fov_center - (eff_fov_w / 2)
     
-    # Camera Height
     base_cam_height = raw_fov_h / 2 
     total_cam_height = base_cam_height + cam_z_offset
-    
     res = width_px / raw_fov_w
     
-    # DOF
     focus_dist = dist + focus_offset
     if focus_dist <= 0: focus_dist = 1
     coc = px_size_mm * coc_mult 
@@ -158,14 +270,12 @@ def calculate_metrics(sensor, binning, wavelength, focal, f_stop, dist,
         df = 99999
         dof = 99999
     
-    # Brightness
     base_px_area = BASE_PARAMS["sensor"]["pixel_size"] ** 2
     base_score = (BASE_PARAMS["sensor"]["qe"][810] * base_px_area) / ((BASE_PARAMS["aperture"]**2) * (BASE_PARAMS["distance"]**2))
     qe = sensor["qe"].get(wavelength, 0.2)
     current_score = (qe * (px_size_um**2)) / ((f_stop**2) * (dist**2))
     bright_pct = (current_score / base_score) * 100
     
-    # --- VALIDITY CHECK (Are balls in FOV?) ---
     is_valid = True
     if not ignore_ball_fit:
         for i in range(num_pos):
@@ -174,7 +284,6 @@ def calculate_metrics(sensor, binning, wavelength, focal, f_stop, dist,
                 is_valid = False
                 break
     
-    # --- LAUNCH ANGLES ---
     safe_near = max(0, dist - dn)
     flight_dist = first_pos + (num_pos - 1) * spacing
     if flight_dist <= 0: flight_dist = 1
@@ -187,7 +296,6 @@ def calculate_metrics(sensor, binning, wavelength, focal, f_stop, dist,
          safe_far = max(0, df - dist)
          max_h_angle = math.degrees(math.atan(safe_far / flight_dist))
     
-    # --- VERTICAL ANGLES ---
     fov_h_at_near = (sensor_h * dn) / focal
     if is_stereo and stereo_align == "Vertical":
         fov_h_at_near = max(0, fov_h_at_near - stereo_base)
@@ -207,10 +315,7 @@ def calculate_metrics(sensor, binning, wavelength, focal, f_stop, dist,
     max_v_angle = math.degrees(max_v_rad)
 
     if not is_valid and not ignore_ball_fit:
-        min_h_angle = None
-        max_h_angle = None
-        min_v_angle = None 
-        max_v_angle = None
+        min_h_angle = max_h_angle = min_v_angle = max_v_angle = None
 
     return {
         "res": res, "dof": dof, "fov_w": eff_fov_w, "fov_h": eff_fov_h,
@@ -247,13 +352,11 @@ def plot_schematic(title, dist_mm, vals, num_pos, first_pos, spacing, x_limits, 
     else:
         cam_centers = [(0, fov_center_y)]
 
-    # Draw Single LM Body (Centered)
     lm_rect = patches.Rectangle((-150, fov_center_y - 75), 150, 150, 
                                linewidth=1, edgecolor='black', facecolor='#222222', alpha=0.9, zorder=20)
     ax.add_patch(lm_rect)
     ax.text(-75, fov_center_y, "LM", ha='center', va='center', color='white', fontweight='bold', zorder=21)
 
-    # Draw Cameras
     for cx, cy in cam_centers:
         raw_top = cy + (raw_w / 2)
         raw_bot = cy - (raw_w / 2)
@@ -264,13 +367,11 @@ def plot_schematic(title, dist_mm, vals, num_pos, first_pos, spacing, x_limits, 
             ax.plot([0, dist_mm], [cy, raw_top], color='skyblue', linestyle='--', alpha=0.3, zorder=1)
             ax.plot([0, dist_mm], [cy, raw_bot], color='skyblue', linestyle='--', alpha=0.3, zorder=1)
 
-    # Overlap
     fov_top = fov_center_y + (fov_w_mm / 2)
     fov_bottom = fov_center_y - (fov_w_mm / 2)
     label_fov = 'Overlap FOV' if is_stereo else 'FOV'
     ax.fill([0, dist_mm, dist_mm], [fov_center_y, fov_top, fov_bottom], alpha=0.2, color='blue', label=label_fov, zorder=2)
     
-    # DOF
     dof_near = vals["near_limit"]
     dof_far = vals["far_limit"]
     plot_far = min(dof_far, dist_mm + 500)
@@ -278,15 +379,12 @@ def plot_schematic(title, dist_mm, vals, num_pos, first_pos, spacing, x_limits, 
                                  linewidth=1, edgecolor='green', facecolor='green', alpha=0.15, zorder=3, label="Focus Zone")
     ax.add_patch(dof_rect)
     
-    # Tee
     ax.axvline(dist_mm, color='red', linestyle=':', alpha=0.5, zorder=4)
     ax.plot(dist_mm, 0, 'kx', markersize=8, markeredgewidth=2, zorder=5)
     ax.text(dist_mm, -20, "Tee", ha='center', va='top', fontweight='bold', zorder=20)
     
     lbl_off = 35 
     
-    # CLUB DATA
-    start_num = 1
     if include_club:
         club_y_min = -101.6 
         club_y_max = 25.4   
@@ -296,25 +394,19 @@ def plot_schematic(title, dist_mm, vals, num_pos, first_pos, spacing, x_limits, 
         ax.text(dist_mm + lbl_off, club_y_min, "1", color='blue', fontweight='bold', va='center', zorder=20)
         ax.plot([cx_min, cx_max], [club_y_max, club_y_max], color='red', linestyle=':', linewidth=1.5, zorder=4)
         ax.text(dist_mm + lbl_off, club_y_max, "2", color='blue', fontweight='bold', va='center', zorder=20)
-        start_num = 3
     
-    # BALLS & GHOSTS
     safe_near_dev = vals["safe_near_dev"]
     safe_far_dev = vals["safe_far_dev"]
     flight_dist = vals["flight_dist"]
     
-    # Legend Handles
     real_ball_handle = mlines.Line2D([], [], color='red', marker='o', linestyle='None', markersize=8, label='Straight Shot')
-    # Ghost Ball Handle (Solid Line Open Circle for Ghost)
     ghost_ball_handle = mlines.Line2D([], [], color='red', marker='o', linestyle='None', 
                                       markersize=8, markerfacecolor='none', markeredgewidth=1.5, label='Min/Max HLA')
     
     for i in range(num_pos):
         y = first_pos + (i * spacing)
-        # Real
         ax.add_patch(patches.Circle((dist_mm, y), BALL_RADIUS_MM, facecolor='red', edgecolor='black', linewidth=0.5, zorder=10))
         
-        # Ghost (HLA)
         if flight_dist > 0: scale = y / flight_dist
         else: scale = 0
         
@@ -328,9 +420,6 @@ def plot_schematic(title, dist_mm, vals, num_pos, first_pos, spacing, x_limits, 
             ax.add_patch(patches.Circle((dist_mm + far_offset, y), BALL_RADIUS_MM, linestyle='-', linewidth=1.5, edgecolor='red', facecolor='none', zorder=11))
             label_x = dist_mm + far_offset + 30
             
-        ax.text(label_x, y, str(start_num + i), color='black', fontweight='bold', va='center', zorder=20)
-    
-    # Arrow
     arrow_x = x_limits[1] - 50
     ax.arrow(arrow_x, 0, 0, 200, head_width=20, head_length=40, fc='k', ec='k', zorder=5)
     ax.text(arrow_x + 30, 100, "Swing Direction", rotation=90, va='center', zorder=5)
@@ -338,14 +427,11 @@ def plot_schematic(title, dist_mm, vals, num_pos, first_pos, spacing, x_limits, 
     ax.set_title(title + " (Top View)")
     ax.set_xlabel("Distance Perpendicular (mm)")
     ax.set_ylabel("Distance Parallel (mm)")
-    
     ax.set_xlim(x_limits)
     ax.set_ylim(y_limits)
-    
     ax.set_aspect('equal', adjustable='box') 
     ax.grid(True, linestyle=':', alpha=0.6)
     
-    # Custom Legend
     handles, labels = ax.get_legend_handles_labels()
     handles.extend([real_ball_handle, ghost_ball_handle])
     
@@ -355,7 +441,6 @@ def plot_schematic(title, dist_mm, vals, num_pos, first_pos, spacing, x_limits, 
         handles.extend([left_h, right_h])
         
     ax.legend(handles=handles, loc='best', fontsize='small', framealpha=0.9)
-    
     return fig
 
 # --- PLOTTING FUNCTION (YZ SENSOR VIEW) ---
@@ -370,29 +455,21 @@ def plot_sensor_view_final(title, vals, num_pos, first_pos, spacing, start_num, 
     eff_height = eff_top - eff_bottom
     eff_width = vals["fov_w"]
     rect_left = fov_center_x - (eff_width / 2)
-    cam_height = vals["total_cam_height"]
     
     is_stereo = vals["stereo_base"] > 0
     label_fov = 'Overlap FOV' if is_stereo else 'FOV'
     
-    # Draw Club Data Lines (Vertical dotted red)
     if include_club:
         club_x_1 = -101.6
         club_x_2 = 25.4
-        
-        # Line 1
         ax.vlines(club_x_1, eff_bottom, eff_bottom + eff_height, colors='red', linestyles=':', linewidth=1.5, zorder=5)
         ax.text(club_x_1, eff_bottom + eff_height + 10, "1", color='blue', fontweight='bold', ha='center', fontsize=10)
-        
-        # Line 2
         ax.vlines(club_x_2, eff_bottom, eff_bottom + eff_height, colors='red', linestyles=':', linewidth=1.5, zorder=5)
         ax.text(club_x_2, eff_bottom + eff_height + 10, "2", color='blue', fontweight='bold', ha='center', fontsize=10)
 
-    # Draw Individual Camera Frames (Dotted)
     if is_stereo:
         base = vals["stereo_base"]
         raw_w = vals["raw_fov_w"]
-        
         if vals["stereo_align"] == "Horizontal":
             c1_x = fov_center_x - (base/2)
             c2_x = fov_center_x + (base/2)
@@ -406,12 +483,10 @@ def plot_sensor_view_final(title, vals, num_pos, first_pos, spacing, start_num, 
             ax.add_patch(rect1)
             ax.add_patch(rect2)
 
-    # Effective Window
     rect = patches.Rectangle((rect_left, eff_bottom), eff_width, eff_height,
                              linewidth=2, edgecolor='blue', facecolor='skyblue', alpha=0.1, label=label_fov)
     ax.add_patch(rect)
     
-    # Tee
     ax.plot(0, 0, 'kx', markersize=12, markeredgewidth=2)
     ax.text(0, -15, "Tee", ha='center', va='top', fontsize=8)
     ax.axhline(0, color='gray', linestyle='-', alpha=0.5)
@@ -421,9 +496,7 @@ def plot_sensor_view_final(title, vals, num_pos, first_pos, spacing, start_num, 
     
     for i in range(num_pos):
         h_pos = first_pos + (i * spacing)
-        
         h_max = BALL_RADIUS_MM + (h_pos * math.tan(max_rad))
-        # Removed label= here to prevent Rectangle creation
         ball_max = patches.Circle((h_pos, h_max), BALL_RADIUS_MM, facecolor='orange', edgecolor='black', linewidth=0.5, alpha=0.8)
         ax.add_patch(ball_max)
         ax.text(h_pos, h_max + 25, f"{start_num + i}", ha='center', fontsize=8, color='darkred')
@@ -442,25 +515,16 @@ def plot_sensor_view_final(title, vals, num_pos, first_pos, spacing, start_num, 
     ax.set_aspect('equal', adjustable='box')
     ax.grid(True, linestyle=':', alpha=0.6)
     
-    # Manual VLA Handle (Circle)
     vla_handle = mlines.Line2D([], [], color='orange', marker='o', linestyle='None', markeredgecolor='black', markersize=8, alpha=0.8, label='Min/Max VLA')
-    
     handles, labels = ax.get_legend_handles_labels()
-    # Replace/Append custom handles
     final_handles = []
     final_labels = []
-    
-    # Add Camera handles from plot
     for h, l in zip(handles, labels):
         final_handles.append(h)
         final_labels.append(l)
-    
-    # Add VLA handle explicitly
     final_handles.append(vla_handle)
     final_labels.append("Min/Max VLA")
-    
     ax.legend(final_handles, final_labels, loc='best', fontsize='small', framealpha=0.9)
-    
     return fig
 
 # --- UI SETUP ---
@@ -477,6 +541,7 @@ with st.sidebar.expander("❓ How to Use this Calculator"):
 
     ### **Step 2: Select Hardware**
     * **Sensor:** Choose from the dropdown list.
+    * **Lens:** Select the Focal Length and Aperture using the sliders in the main window.
     * **Stereoscopic Mode:**
         * **Checked:** Calculates overlap for dual cameras.
         * **Ratio:** 1:5 is industry standard. 1:30 is wider overlap but less depth precision.
@@ -593,19 +658,38 @@ if st.session_state.last_club_state != include_club:
         st.session_state.dist_parallel = int((first_pos - 25.4) + (eff_fov_w / 2)) # Bottom at 1st Ball - 1"
 
 # --- SMART AUTO OPTIMIZER ---
-st.markdown("### 🚀 Auto-Optimizer")
-if st.button("✨ Optimize System", help="Iterates through all lens/aperture combinations. Prioritizes maximizing Depth of Field (Focus Zone) first, then maximizes Perpendicular Distance."):
-    valid_configs = []
-    bin_factor = 2 if use_binning else 1
-    px_mm = (sensor["pixel_size"] * bin_factor) / 1000
-    
-    for f in REAL_FOCAL_LENGTHS:
-        for aper in REAL_APERTURES:
+# Top-level optimization row
+c_opt1, c_opt2, c_opt3 = st.columns([0.25, 0.45, 0.3])
+
+with c_opt2:
+    min_coverage_pct = st.slider("Min Image Circle Coverage (%)", 50, 100, 90, 5)
+
+with c_opt3:
+    st.write("") # Spacer to align
+    st.write("") 
+    include_varifocal = st.checkbox("Include Varifocal Lenses", value=False) # Changed default to False
+
+# Re-calculate compatible lenses based on checkbox state
+compatible_lenses = get_compatible_lenses(sensor, min_coverage_pct, include_varifocal)
+
+with c_opt1:
+    st.markdown("### ")
+    if st.button("✨ Optimize System", help="Iterates through all compatible lenses. Prioritizes maximizing Depth of Field (Focus Zone) first, then maximizes Perpendicular Distance."):
+        valid_configs = []
+        bin_factor = 2 if use_binning else 1
+        px_mm = (sensor["pixel_size"] * bin_factor) / 1000
+        
+        # Iterate through COMPATIBLE LENSES only
+        for l_data in compatible_lenses:
+            f = l_data[1]
+            aper = l_data[2]
+            
             max_res_dist = int(f / (px_mm * target_res))
             if max_res_dist > 1000: max_res_dist = 1000
             if max_res_dist < target_min_dist: continue
             
             found_d_for_lens = None
+            found_parallel_for_lens = None
             for d in range(max_res_dist, target_min_dist - 1, -20):
                 trial_base = int(d / stereo_ratio) if is_stereo else 0
                 
@@ -660,42 +744,57 @@ if st.button("✨ Optimize System", help="Iterates through all lens/aperture com
                 
                 if final_m['min_h_angle'] is not None and final_m['min_v_angle'] <= target_min_vla + 0.5:
                     valid_configs.append({
-                        "f": f, "aper": aper, "dist": found_d_for_lens, 
+                        "focal": f, "aperture": aper, "dist": found_d_for_lens, 
                         "offset": best_off, "cam_z": optimal_cam_z,
                         "parallel": found_parallel_for_lens,
-                        "dof": final_m['dof']
+                        "dof": final_m['dof'], "model": l_data[0]
                     })
-    
-    if valid_configs:
-        valid_configs.sort(key=lambda x: (x['dof'], x['dist']), reverse=True)
-        winner = valid_configs[0]
-        st.session_state.focal = winner['f']
-        st.session_state.aperture = winner['aper']
-        st.session_state.distance = winner['dist']
-        st.session_state.focus_offset = winner['offset']
-        st.session_state.cam_z = winner['cam_z']
-        st.session_state.dist_parallel = int(winner['parallel'])
-        st.success(f"🏆 Found: {winner['f']}mm @ f/{winner['aper']} (Dist: {winner['dist']}mm)")
-        st.rerun()
-    else:
-        st.error("❌ No configuration found satisfying Targets.")
+        
+        if valid_configs:
+            valid_configs.sort(key=lambda x: (x['dof'], x['dist']), reverse=True)
+            winner = valid_configs[0]
+            
+            # Update session state with winner
+            st.session_state.focal = winner['focal']
+            st.session_state.aperture = winner['aperture']
+            st.session_state.distance = winner['dist']
+            st.session_state.focus_offset = winner['offset']
+            st.session_state.cam_z = winner['cam_z']
+            st.session_state.dist_parallel = int(winner['parallel'])
+            st.rerun()
+        else:
+            st.error("❌ No configuration found satisfying Targets.")
 
 st.divider()
+
+# --- PREPARE LENS DATA FOR SLIDERS ---
+# 1. Get Global Min/Max Focal & Aperture from ALL lenses (to define slider ranges)
+all_focals = sorted(list(set([l[1] for l in LENS_DATABASE])))
+all_apertures = sorted(list(set([l[2] for l in LENS_DATABASE])))
+min_f, max_f = min(all_focals), max(all_focals)
+min_a, max_a = min(all_apertures), max(all_apertures)
 
 # --- MANUAL INPUTS ---
 c1, c2, c3 = st.columns(3)
 with c1: 
-    st.session_state.focal = st.select_slider("Focal (mm)", REAL_FOCAL_LENGTHS, st.session_state.focal, help="Lens Focal Length.")
-    if st.button("Optimize Lens Only", help="Finds the best lens focal length for the current distance."):
+    # Use standard slider with full range (0.1 increments)
+    st.session_state.focal = st.slider("Focal Length (mm)", min_value=float(min_f), max_value=float(max_f), value=float(st.session_state.focal), step=0.1)
+    
+    if st.button("Optimize Lens Only", help="Finds the best real lens focal length for the current distance."):
         bin_factor = 2 if use_binning else 1
         px_mm = (sensor["pixel_size"] * bin_factor) / 1000
         ideal_f = st.session_state.distance * px_mm * target_res
-        st.session_state.focal = find_nearest(REAL_FOCAL_LENGTHS, ideal_f)
+        
+        # Find nearest REAL lens focal
+        compatible_focals = sorted(list(set([l[1] for l in compatible_lenses])))
+        st.session_state.focal = find_nearest(compatible_focals, ideal_f)
         st.rerun()
         
 with c2: 
-    st.session_state.aperture = st.select_slider("Aperture (f/)", REAL_APERTURES, st.session_state.aperture, help="Lens Aperture (Iris).")
-    if st.button("Optimize f-stop Only", help="Finds the smallest aperture (highest f-number) that meets the brightness target."):
+    # Use standard slider with full range (0.1 increments)
+    st.session_state.aperture = st.slider("Aperture (f/)", min_value=float(min_a), max_value=float(max_a), value=float(st.session_state.aperture), step=0.1)
+
+    if st.button("Optimize f-stop Only", help="Finds the best real aperture (for brightness/DOF) given the current focal."):
         bin_factor = 2 if use_binning else 1
         px_mm = (sensor["pixel_size"] * bin_factor) / 1000
         qe = sensor["qe"].get(810, 0.2)
@@ -704,9 +803,13 @@ with c2:
         target_score = (target_bright / 100) * base_score
         f_sq = (qe * (px_size_um := sensor["pixel_size"] * bin_factor)**2) / (target_score * st.session_state.distance**2)
         max_f = math.sqrt(f_sq)
-        valid = [x for x in REAL_APERTURES if x <= max_f]
-        if valid: st.session_state.aperture = max(valid) 
-        else: st.session_state.aperture = 1.2 
+        
+        # Look for real apertures in compatible lenses
+        valid_apertures = sorted(list(set([l[2] for l in compatible_lenses])))
+        valid_subset = [x for x in valid_apertures if x <= max_f]
+        
+        if valid_subset: st.session_state.aperture = max(valid_subset) 
+        else: st.session_state.aperture = valid_apertures[0] 
         st.rerun()
 
 with c3: 
@@ -734,6 +837,18 @@ with c3:
             st.rerun()
         else:
             st.error("Cannot satisfy constraints.")
+
+# --- LENS MATCHING LOGIC ---
+match_lens = None
+for l in compatible_lenses:
+    if math.isclose(l[1], st.session_state.focal, abs_tol=0.05) and math.isclose(l[2], st.session_state.aperture, abs_tol=0.05):
+        match_lens = l[0]
+        break
+
+if match_lens:
+    st.success(f"**Lens Model Found:** {match_lens}")
+else:
+    st.warning(f"⚠️ Standard lens may not exist with these exact specs ({st.session_state.focal}mm f/{st.session_state.aperture})")
 
 c4, c5, c6 = st.columns(3)
 with c4: 
