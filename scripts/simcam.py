@@ -602,7 +602,9 @@ st.sidebar.divider()
 st.sidebar.subheader("Optimization Targets")
 target_res = st.sidebar.number_input("Min Resolution (px/mm)", value=4.0, step=0.1, help="Minimum pixels per millimeter required on the ball surface.")
 target_bright = st.sidebar.number_input("Min Brightness (%)", value=80.0, step=10.0, help="Minimum relative brightness compared to the baseline setup.")
-target_min_dist = st.sidebar.number_input("Min Distance (mm)", value=254, min_value=100, max_value=1000, step=10, help="Closest allowed physical distance from Camera to Tee.")
+if 'target_min_dist' not in st.session_state: st.session_state.target_min_dist = 254
+tmd_lbl = f"Min Distance Perpendicular to Swing (mm) - {st.session_state.target_min_dist/25.4:.1f}\""
+target_min_dist = st.sidebar.number_input(tmd_lbl, min_value=100, max_value=1000, step=10, help="Closest allowed physical distance from Camera to Tee.", key="target_min_dist")
 target_min_vla = st.sidebar.number_input("Min Vert Launch Angle (deg)", value=0.0, step=1.0, help="Required vertical floor angle (0 deg means camera sees the floor).")
 
 coc_help = """
@@ -616,8 +618,12 @@ st.sidebar.divider()
 st.sidebar.header("Ball Data")
 include_club = st.sidebar.checkbox("Include Club Data", value=False, help="Adds tracking lines 4in below and 1in above tee.")
 num_pos = st.sidebar.number_input("Number of Positions", min_value=2, value=2, step=1, help="Number of ball exposures to capture.")
-first_pos = st.sidebar.number_input("First Image Position (mm)", value=152.4, step=10.0, help="Distance from Tee to the FIRST ball image.")
-spacing = st.sidebar.number_input("Position Spacing (mm)", value=64.0, step=1.0, help="Distance between sequential ball images.")
+if 'first_pos' not in st.session_state: st.session_state.first_pos = 152.4
+fp_lbl = f"First Image Position (mm) - {st.session_state.first_pos/25.4:.1f}\""
+first_pos = st.sidebar.number_input(fp_lbl, step=10.0, help="Distance from Tee to the FIRST ball image.", key="first_pos")
+if 'spacing' not in st.session_state: st.session_state.spacing = 64.0
+sp_lbl = f"Position Spacing (mm) - {st.session_state.spacing/25.4:.1f}\""
+spacing = st.sidebar.number_input(sp_lbl, step=1.0, help="Distance between sequential ball images.", key="spacing")
 st.sidebar.caption(f"Ref: Golf Ball Dia = {BALL_DIAMETER_MM} mm")
 
 # --- STATE ---
@@ -813,7 +819,8 @@ with c2:
         st.rerun()
 
 with c3: 
-    st.session_state.distance = st.slider("Distance Perpendicular to Swing (mm)", 100, 1000, st.session_state.distance, 1, help="Horizontal distance from Lens to Tee.")
+    dist_lbl = f"Distance Perpendicular to Swing (mm) - {st.session_state.distance/25.4:.1f}\""
+    st.slider(dist_lbl, 100, 1000, step=1, help="Horizontal distance from Lens to Tee.", key="distance")
     if st.button("Optimize Dist Only", help="Finds the maximum distance that satisfies the Resolution and Brightness targets."):
         bin_factor = 2 if use_binning else 1
         px_mm = (sensor["pixel_size"] * bin_factor) / 1000
@@ -852,7 +859,8 @@ else:
 
 c4, c5, c6 = st.columns(3)
 with c4: 
-    st.session_state.focus_offset = st.slider("Focus Offset", -400, 200, st.session_state.focus_offset, 5, help="Shifts the focal plane closer (-) or further (+).")
+    fo_lbl = f"Focus Offset (mm) - {st.session_state.focus_offset/25.4:.1f}\""
+    st.slider(fo_lbl, -400, 200, step=5, help="Shifts the focal plane closer (-) or further (+).", key="focus_offset")
     if st.button("Optimize Focus Only", help="Adjusts focus offset to center the Depth of Field around the Tee."):
         best_off = 0
         best_diff = 9999
@@ -871,7 +879,8 @@ with c4:
         st.rerun()
 
 with c5: 
-    st.session_state.cam_z = st.slider("Vert Cam Offset", -500, 500, int(st.session_state.cam_z), 5, help="0 = Bottom of FOV aligns with Tee level (0°). Positive values raise the camera.")
+    cz_lbl = f"Vert Cam Offset (mm) - {st.session_state.cam_z/25.4:.1f}\""
+    st.slider(cz_lbl, -500, 500, step=5, help="0 = Bottom of FOV aligns with Tee level (0°). Positive values raise the camera.", key="cam_z")
     if st.button("Optimize Vert Cam Only", help="Adjusts vertical height to meet the Min Vert Launch Angle target."):
         flight_d = first_pos + (num_pos - 1) * spacing
         offset_needed = math.tan(math.radians(target_min_vla)) * flight_d
@@ -879,7 +888,8 @@ with c5:
         st.rerun()
 
 with c6:
-    st.session_state.dist_parallel = st.slider("Distance Parallel to Swing (mm)", -200, 600, int(st.session_state.dist_parallel), 1, help="Shift Camera Left/Right along the swing line.")
+    dp_lbl = f"Distance Parallel to Swing (mm) - {st.session_state.dist_parallel/25.4:.1f}\""
+    st.slider(dp_lbl, -200, 600, step=1, help="Shift Camera Left/Right along the swing line.", key="dist_parallel")
     if st.button("Optimize Parallel Only", help="Aligns bottom edge of FOV based on selected mode (1 inch below ball or -5 inches for club)."):
         bin_factor = 2 if use_binning else 1
         px_mm = (sensor["pixel_size"] * bin_factor) / 1000
@@ -913,7 +923,7 @@ base_res = calculate_metrics(
 )
 
 # --- RESULTS TABLE ---
-def fmt_dof(dof, dn, df): return f"{dof:.1f} mm [{int(dn)} - {int(df)}]"
+def fmt_dof(dof, dn, df): return f"{dof:.1f} mm ({dof/25.4:.1f}\") [{dn:.1f} mm ({dn/25.4:.1f}\") - {df:.1f} mm ({df/25.4:.1f}\")]"
 def fmt_angle(min_val, max_val):
     if min_val is None: return "NOT VISIBLE"
     return f"[{min_val:+.1f}°, {max_val:+.1f}°]"
@@ -925,12 +935,12 @@ metrics = [
 ]
 
 if is_stereo:
-    metrics.append(("Stereo Base (Camera Separation)", "N/A", f"{stereo_base_val}mm", "", False))
+    metrics.append(("Stereo Base (Camera Separation)", "N/A", f"{stereo_base_val}mm ({stereo_base_val/25.4:.1f}\")", "", False))
 
 metrics.extend([
     ("Camera Height", base_res['total_cam_height'], vals['total_cam_height'], " mm", False),
-    ("FOV Width" if not is_stereo else "FOV Width (Overlap)", base_res['fov_w'], vals['fov_w'], " mm", True),
-    ("FOV Height", base_res['fov_h'], vals['fov_h'], " mm", True),
+    ("FOV Width" if not is_stereo else "FOV Width (Overlap)", (base_res['fov_w'], BASE_PARAMS["distance"]), (vals['fov_w'], st.session_state.distance), "fov_complex", True),
+    ("FOV Height", (base_res['fov_h'], BASE_PARAMS["distance"]), (vals['fov_h'], st.session_state.distance), "fov_complex", True),
     ("Resolution", base_res['res'], vals['res'], " px/mm", True),
     ("Brightness", 100.0, vals['bright'], "%", True),
     ("Focus Zone", 
@@ -972,13 +982,27 @@ for name, base, new_val, unit, diff in metrics:
             else: pct_max = (n_max - b_max) / abs(b_max) * 100
             row["Change"] = f"[{pct_min:+.1f}%, {pct_max:+.1f}%]"
             row["status"] = "good" if n_width >= b_width else "bad"
+    elif unit == "fov_complex":
+        b_val, b_dist = base
+        n_val, n_dist = new_val
+        b_deg = math.degrees(2 * math.atan((b_val / 2) / b_dist))
+        n_deg = math.degrees(2 * math.atan((n_val / 2) / n_dist))
+        row["Baseline"] = f"{b_val:.1f} mm ({b_val/25.4:.1f}\") [{b_deg:.1f}°]"
+        row["Your Setup"] = f"{n_val:.1f} mm ({n_val/25.4:.1f}\") [{n_deg:.1f}°]"
+        pct = ((n_val - b_val)/b_val)*100
+        row["Change"] = f"{pct:+.1f}%"
+        row["status"] = "good" if pct >= 0 else "bad"
     elif unit == "": 
         row["Baseline"] = base
         row["Your Setup"] = new_val
         row["Change"] = "" 
     else: 
-        row["Baseline"] = f"{base:.1f}{unit}"
-        row["Your Setup"] = f"{new_val:.1f}{unit}"
+        if "mm" in unit and "px" not in unit:
+            row["Baseline"] = f"{base:.1f}{unit} ({base/25.4:.1f}\")"
+            row["Your Setup"] = f"{new_val:.1f}{unit} ({new_val/25.4:.1f}\")"
+        else:
+            row["Baseline"] = f"{base:.1f}{unit}"
+            row["Your Setup"] = f"{new_val:.1f}{unit}"
         if diff: 
             pct = ((new_val - base)/base)*100
             row["Change"] = f"{pct:+.1f}%"
