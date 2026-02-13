@@ -214,6 +214,23 @@ def find_nearest(array, value):
             near = val
     return near
 
+def golden_section_search(f, a, b, tol=1.0):
+    """Minimizes f(x) over [a, b] using Golden Section Search."""
+    gr = (math.sqrt(5) + 1) / 2
+    c = b - (b - a) / gr
+    d = a + (b - a) / gr
+    while abs(b - a) > tol:
+        if f(c) < f(d):
+            b = d
+            d = c
+            c = b - (b - a) / gr
+        else:
+            a = c
+            c = d
+            d = a + (b - a) / gr
+    return (b + a) / 2
+
+
 def calculate_metrics(sensor, binning, wavelength, focal, f_stop, dist, 
                       include_club, num_pos, first_pos, spacing, focus_offset, 
                       coc_mult, cam_z_offset, fixed_y_center=None, ignore_ball_fit=False,
@@ -680,7 +697,7 @@ compatible_lenses = get_compatible_lenses(sensor, min_coverage_pct, include_vari
 
 with c_opt1:
     st.markdown("### ")
-    if st.button("✨ Optimize System", help="Iterates through all compatible lenses. Prioritizes maximizing Depth of Field (Focus Zone) first, then maximizes Perpendicular Distance."):
+    if st.button("✨ Optimize System", help="Analytically finds the best configuration. Prioritizes maximizing Depth of Field (Focus Zone) first, then maximizes Perpendicular Distance."):
         valid_configs = []
         bin_factor = 2 if use_binning else 1
         px_mm = (sensor["pixel_size"] * bin_factor) / 1000
@@ -690,49 +707,55 @@ with c_opt1:
             f = l_data[1]
             aper = l_data[2]
             
-            max_res_dist = int(f / (px_mm * target_res))
-            if max_res_dist > 1000: max_res_dist = 1000
-            if max_res_dist < target_min_dist: continue
+            # 1. Analytical Max Distance for Resolution
+            # Res = f / (px_mm * d)  =>  d <= f / (px_mm * TargetRes)
+            d_res = f / (px_mm * target_res)
             
-            found_d_for_lens = None
-            found_parallel_for_lens = None
-            for d in range(max_res_dist, target_min_dist - 1, -20):
-                trial_base = int(d / stereo_ratio) if is_stereo else 0
+            # 2. Analytical Max Distance for Brightness
+            # Brightness is proportional to 1/d^2. 
+            # We solve for d where Brightness == TargetBright
+            base_px_area = BASE_PARAMS["sensor"]["pixel_size"] ** 2
+            base_score = (BASE_PARAMS["sensor"]["qe"][810] * base_px_area) / ((BASE_PARAMS["aperture"]**2) * (BASE_PARAMS["distance"]**2))
+            
+            qe = sensor["qe"].get(810, 0.2)
+            px_size_um = sensor["pixel_size"] * bin_factor
+            # CurrentScore = (qe * px^2) / (aper^2 * d^2)
+            # TargetScore = (target_bright / 100) * base_score
+            # d^2 <= (qe * px^2) / (aper^2 * TargetScore)
+            target_score = (target_bright / 100.0) * base_score
+            if target_score > 0:
+                d_bright_sq = (qe * (px_size_um**2)) / ((aper**2) * target_score)
+                d_bright = math.sqrt(d_bright_sq)
+            else:
+                d_bright = 10000
+
+            # 3. Determine Optimal Distance
+            # We want the largest distance that satisfies both constraints (and safety limit)
+            max_valid_dist = int(min(d_res, d_bright, 1000))
+            
+            if max_valid_dist >= target_min_dist:
+                found_d_for_lens = max_valid_dist
+                trial_base = int(found_d_for_lens / stereo_ratio) if is_stereo else 0
                 
-                # Dynamic Parallel Opt
+                # Calculate Parallel Offset for this distance
                 sensor_w_inner = (sensor["width_px"] / bin_factor) * px_mm
-                eff_fov_w_inner = (sensor_w_inner * d) / f
+                eff_fov_w_inner = (sensor_w_inner * found_d_for_lens) / f
                 if is_stereo and stereo_align == "Horizontal":
                     eff_fov_w_inner = max(0, eff_fov_w_inner - trial_base)
                 
-                if include_club:
-                    opt_parallel = -127.0 + (eff_fov_w_inner / 2)
-                else:
-                    opt_parallel = (first_pos - 25.4) + (eff_fov_w_inner / 2)
-                
-                chk = calculate_metrics(sensor, use_binning, 810, f, aper, d, 
-                                       include_club, num_pos, first_pos, spacing, 0, coc_mult, 0, opt_parallel, True,
-                                       is_stereo, trial_base, stereo_align)
-                if chk['bright'] >= target_bright:
-                    found_d_for_lens = d
-                    found_parallel_for_lens = opt_parallel
-                    break 
+                if include_club: found_parallel_for_lens = -127.0 + (eff_fov_w_inner / 2)
+                else: found_parallel_for_lens = (first_pos - 25.4) + (eff_fov_w_inner / 2)
             
-            if found_d_for_lens:
-                trial_base = int(found_d_for_lens / stereo_ratio) if is_stereo else 0
-                best_off = 0
-                best_diff = 9999
-                for off in range(-400, 200, 10):
-                    m = calculate_metrics(sensor, use_binning, 810, f, aper, found_d_for_lens, 
-                                        include_club, num_pos, first_pos, spacing, off, coc_mult, 0, found_parallel_for_lens, True,
-                                        is_stereo, trial_base, stereo_align)
-                    near = m['near_limit']
-                    far = m['far_limit']
-                    if far > 99999: diff = 0 
-                    else: diff = abs((found_d_for_lens - near) - (far - found_d_for_lens))
-                    if diff < best_diff:
-                        best_diff = diff
-                        best_off = off
+                # 4. Optimize Focus Offset using Golden Section Search
+                def focus_error_func(off_val):
+                    m = calculate_metrics(sensor, use_binning, 810, f, aper, found_d_for_lens,
+                                          include_club, num_pos, first_pos, spacing, off_val, coc_mult, 0, found_parallel_for_lens, True,
+                                          is_stereo, trial_base, stereo_align)
+                    if m['far_limit'] > 99999: return 0.0 # Hyperfocal achieved
+                    # We want distance to be the midpoint of near and far
+                    return abs((found_d_for_lens - m['near_limit']) - (m['far_limit'] - found_d_for_lens))
+
+                best_off = int(golden_section_search(focus_error_func, -400, 200, tol=1.0))
                 
                 flight_d = first_pos + (num_pos - 1) * spacing
                 m_z0 = calculate_metrics(sensor, use_binning, 810, f, aper, found_d_for_lens, 
