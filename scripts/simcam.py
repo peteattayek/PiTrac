@@ -11,8 +11,8 @@ st.set_page_config(page_title="SimCam Optics Calculator", layout="wide")
 BALL_DIAMETER_MM = 42.67
 BALL_RADIUS_MM = BALL_DIAMETER_MM / 2
 
-# BASELINE HARDWARE (FIXED REFERENCE)
-BASE_PARAMS = {
+# BASELINE HARDWARE (DEFAULT REFERENCE)
+DEFAULT_BASE_PARAMS = {
     "sensor": {
         "width_px": 1440, "height_px": 1080, "pixel_size": 3.45, 
         "format": "1/2.9", "qe": {810: 0.21}
@@ -23,8 +23,17 @@ BASE_PARAMS = {
     "height_target": 90,  # Fixed Z (Camera Height)
     "y_pos": 530,         # Fixed Y (Horizontal Center)
     "wavelength": 810,
-    "binning": False
+    "binning": False,
+    "focus_offset": 0,
+    "include_club": False,
+    "is_stereo": False,
+    "stereo_base": 0,
+    "stereo_align": "Horizontal"
 }
+
+# Initialize Session State for Baseline
+if 'base_params' not in st.session_state:
+    st.session_state.base_params = DEFAULT_BASE_PARAMS.copy()
 
 # SENSOR DATABASE
 SENSORS = {
@@ -287,8 +296,9 @@ def calculate_metrics(sensor, binning, wavelength, focal, f_stop, dist,
         df = 99999
         dof = 99999
     
-    base_px_area = BASE_PARAMS["sensor"]["pixel_size"] ** 2
-    base_score = (BASE_PARAMS["sensor"]["qe"][810] * base_px_area) / ((BASE_PARAMS["aperture"]**2) * (BASE_PARAMS["distance"]**2))
+    base_params = st.session_state.base_params
+    base_px_area = base_params["sensor"]["pixel_size"] ** 2
+    base_score = (base_params["sensor"]["qe"][810] * base_px_area) / ((base_params["aperture"]**2) * (base_params["distance"]**2))
     qe = sensor["qe"].get(wavelength, 0.2)
     current_score = (qe * (px_size_um**2)) / ((f_stop**2) * (dist**2))
     bright_pct = (current_score / base_score) * 100
@@ -714,8 +724,9 @@ with c_opt1:
             # 2. Analytical Max Distance for Brightness
             # Brightness is proportional to 1/d^2. 
             # We solve for d where Brightness == TargetBright
-            base_px_area = BASE_PARAMS["sensor"]["pixel_size"] ** 2
-            base_score = (BASE_PARAMS["sensor"]["qe"][810] * base_px_area) / ((BASE_PARAMS["aperture"]**2) * (BASE_PARAMS["distance"]**2))
+            base_params = st.session_state.base_params
+            base_px_area = base_params["sensor"]["pixel_size"] ** 2
+            base_score = (base_params["sensor"]["qe"][810] * base_px_area) / ((base_params["aperture"]**2) * (base_params["distance"]**2))
             
             qe = sensor["qe"].get(810, 0.2)
             px_size_um = sensor["pixel_size"] * bin_factor
@@ -827,8 +838,9 @@ with c2:
         bin_factor = 2 if use_binning else 1
         px_mm = (sensor["pixel_size"] * bin_factor) / 1000
         qe = sensor["qe"].get(810, 0.2)
-        base_px_area = BASE_PARAMS["sensor"]["pixel_size"] ** 2
-        base_score = (BASE_PARAMS["sensor"]["qe"][810] * base_px_area) / ((BASE_PARAMS["aperture"]**2) * (BASE_PARAMS["distance"]**2))
+        base_params = st.session_state.base_params
+        base_px_area = base_params["sensor"]["pixel_size"] ** 2
+        base_score = (base_params["sensor"]["qe"][810] * base_px_area) / ((base_params["aperture"]**2) * (base_params["distance"]**2))
         target_score = (target_bright / 100) * base_score
         f_sq = (qe * (px_size_um := sensor["pixel_size"] * bin_factor)**2) / (target_score * st.session_state.distance**2)
         max_f = math.sqrt(f_sq)
@@ -933,16 +945,22 @@ vals = calculate_metrics(sensor, use_binning, 810, st.session_state.focal, st.se
                         include_club, num_pos, first_pos, spacing, st.session_state.focus_offset, coc_mult, st.session_state.cam_z, st.session_state.dist_parallel, False,
                         is_stereo, stereo_base_val, stereo_align)
 
-base_fov_h = (BASE_PARAMS["sensor"]["height_px"] * BASE_PARAMS["sensor"]["pixel_size"] / 1000 * BASE_PARAMS["distance"]) / BASE_PARAMS["focal"]
-base_fov_w = (BASE_PARAMS["sensor"]["width_px"] * BASE_PARAMS["sensor"]["pixel_size"] / 1000 * BASE_PARAMS["distance"]) / BASE_PARAMS["focal"]
-base_offset = BASE_PARAMS["height_target"] - (base_fov_h / 2)
-baseline_first_pos = 530 + 25.4 - (base_fov_w / 2)
+base_params = st.session_state.base_params
+
+base_fov_h = (base_params["sensor"]["height_px"] * base_params["sensor"]["pixel_size"] / 1000 * base_params["distance"]) / base_params["focal"]
+base_fov_w = (base_params["sensor"]["width_px"] * base_params["sensor"]["pixel_size"] / 1000 * base_params["distance"]) / base_params["focal"]
+base_offset = base_params["height_target"] - (base_fov_h / 2)
+
+if "first_pos" in base_params:
+    baseline_first_pos = base_params["first_pos"]
+else:
+    baseline_first_pos = base_params["y_pos"] - (base_fov_w / 2) + 25.4
 
 base_res = calculate_metrics(
-    BASE_PARAMS["sensor"], BASE_PARAMS["binning"], BASE_PARAMS["wavelength"], 
-    BASE_PARAMS["focal"], BASE_PARAMS["aperture"], BASE_PARAMS["distance"],
-    False, num_pos, baseline_first_pos, spacing, 0, coc_mult, base_offset, BASE_PARAMS["y_pos"], False,
-    False, 0, "Horizontal"
+    base_params["sensor"], base_params["binning"], base_params["wavelength"], 
+    base_params["focal"], base_params["aperture"], base_params["distance"],
+    base_params.get("include_club", False), num_pos, baseline_first_pos, spacing, base_params.get("focus_offset", 0), coc_mult, base_offset, base_params["y_pos"], False,
+    base_params.get("is_stereo", False), base_params.get("stereo_base", 0), base_params.get("stereo_align", "Horizontal")
 )
 
 # --- RESULTS TABLE ---
@@ -952,18 +970,21 @@ def fmt_angle(min_val, max_val):
     return f"[{min_val:+.1f}°, {max_val:+.1f}°]"
 
 metrics = [
-    ("Lens", f"{BASE_PARAMS['focal']}mm f/{BASE_PARAMS['aperture']}", f"{st.session_state.focal}mm f/{st.session_state.aperture}", "", False),
-    ("Distance Perpendicular", BASE_PARAMS["distance"], st.session_state.distance, "mm", False),
-    ("Distance Parallel (Center)", BASE_PARAMS["y_pos"], st.session_state.dist_parallel, "mm", False),
+    ("Lens", f"{base_params['focal']}mm f/{base_params['aperture']}", f"{st.session_state.focal}mm f/{st.session_state.aperture}", "", False),
+    ("Distance Perpendicular", base_params["distance"], st.session_state.distance, "mm", False),
+    ("Distance Parallel (Center)", base_params["y_pos"], st.session_state.dist_parallel, "mm", False),
 ]
 
-if is_stereo:
-    metrics.append(("Stereo Base (Camera Separation)", "N/A", f"{stereo_base_val}mm ({stereo_base_val/25.4:.1f}\")", "", False))
+if is_stereo or base_params.get("is_stereo", False):
+    b_sb = base_params.get("stereo_base", 0)
+    b_txt = f"{b_sb}mm ({b_sb/25.4:.1f}\")" if base_params.get("is_stereo", False) else "N/A"
+    n_txt = f"{stereo_base_val}mm ({stereo_base_val/25.4:.1f}\")" if is_stereo else "N/A"
+    metrics.append(("Stereo Base (Camera Separation)", b_txt, n_txt, "", False))
 
 metrics.extend([
     ("Camera Height", base_res['total_cam_height'], vals['total_cam_height'], " mm", False),
-    ("FOV Width" if not is_stereo else "FOV Width (Overlap)", (base_res['fov_w'], BASE_PARAMS["distance"]), (vals['fov_w'], st.session_state.distance), "fov_complex", True),
-    ("FOV Height", (base_res['fov_h'], BASE_PARAMS["distance"]), (vals['fov_h'], st.session_state.distance), "fov_complex", True),
+    ("FOV Width" if not is_stereo else "FOV Width (Overlap)", (base_res['fov_w'], base_params["distance"]), (vals['fov_w'], st.session_state.distance), "fov_complex", True),
+    ("FOV Height", (base_res['fov_h'], base_params["distance"]), (vals['fov_h'], st.session_state.distance), "fov_complex", True),
     ("Resolution", base_res['res'], vals['res'], " px/mm", True),
     ("Brightness", 100.0, vals['bright'], "%", True),
     ("Focus Zone", 
@@ -1058,10 +1079,35 @@ st.dataframe(
     height=total_height
 )
 
+b_c1, b_c2, b_c3, b_c4 = st.columns([2, 1, 1, 1])
+with b_c2:
+    if st.button("Reset Baseline", help="Restores the original hardcoded baseline."):
+        st.session_state.base_params = DEFAULT_BASE_PARAMS.copy()
+        st.rerun()
+with b_c3:
+    if st.button("Set Current as Baseline", help="Updates the Baseline column to match your current configuration."):
+        st.session_state.base_params = {
+            "sensor": sensor.copy(),
+            "focal": st.session_state.focal,
+            "aperture": st.session_state.aperture,
+            "distance": st.session_state.distance,
+            "height_target": vals['total_cam_height'],
+            "y_pos": st.session_state.dist_parallel,
+            "wavelength": 810,
+            "binning": use_binning,
+            "focus_offset": st.session_state.focus_offset,
+            "first_pos": st.session_state.first_pos,
+            "include_club": include_club,
+            "is_stereo": is_stereo,
+            "stereo_base": stereo_base_val,
+            "stereo_align": stereo_align
+        }
+        st.rerun()
+
 # --- PLOTS ---
 sch_c1, sch_c2 = st.columns(2)
-x_max = max(BASE_PARAMS["distance"], st.session_state.distance) + 250
-balls_max_y = first_pos + (num_pos * spacing) + 100
+x_max = max(base_params["distance"], st.session_state.distance) + 250
+balls_max_y = max(first_pos, baseline_first_pos) + (num_pos * spacing) + 100
 fov_max_y = max(base_res["fov_top"], vals["fov_top"]) + 50
 fov_min_y = min(base_res["fov_bottom"], vals["fov_bottom"]) - 50
 y_limits = (fov_min_y, max(balls_max_y, fov_max_y))
@@ -1077,17 +1123,17 @@ if include_club:
     global_y_min = min(global_y_min, -120)
 
 global_y_max = max(base_res["fov_top"], vals["fov_top"], balls_max_y) + 50
-global_x_max = max(BASE_PARAMS["distance"], st.session_state.distance) + 250
+global_x_max = max(base_params["distance"], st.session_state.distance) + 250
 
 with sch_c1:
-    st.pyplot(plot_schematic("Baseline", BASE_PARAMS["distance"], base_res, num_pos, baseline_first_pos, spacing, (-200, global_x_max), (global_y_min, global_y_max), False))
+    st.pyplot(plot_schematic("Baseline", base_params["distance"], base_res, num_pos, baseline_first_pos, spacing, (-200, global_x_max), (global_y_min, global_y_max), base_params.get("include_club", False)))
 with sch_c2:
     st.pyplot(plot_schematic("Your Setup", st.session_state.distance, vals, num_pos, first_pos, spacing, (-200, global_x_max), (global_y_min, global_y_max), include_club))
 
 lm_c1, lm_c2 = st.columns(2)
 # Ensure LM view is wide enough for club data (-101.6mm)
 base_min_x = min(base_res["fov_center"] - base_res["fov_w"]/2, vals["fov_center"] - vals["fov_w"]/2, -50) - 20
-if include_club:
+if include_club or base_params.get("include_club", False):
     base_min_x = min(base_min_x, -150)
 
 all_min_x = base_min_x
@@ -1095,7 +1141,9 @@ all_max_x = max(base_res["fov_center"] + base_res["fov_w"]/2, vals["fov_center"]
 all_max_y = max(base_res["fov_top_z_far"], vals["fov_top_z_far"]) + 50
 
 with lm_c1:
-    st.pyplot(plot_sensor_view_final("Baseline", base_res, num_pos, baseline_first_pos, spacing, 1, (all_min_x, all_max_x), (-50, all_max_y)))
+    base_inc_club = base_params.get("include_club", False)
+    start_n_base = 3 if base_inc_club else 1
+    st.pyplot(plot_sensor_view_final("Baseline", base_res, num_pos, baseline_first_pos, spacing, start_n_base, (all_min_x, all_max_x), (-50, all_max_y), include_club=base_inc_club))
 with lm_c2:
     start_n = 3 if include_club else 1
     st.pyplot(plot_sensor_view_final("Your Setup", vals, num_pos, first_pos, spacing, start_n, (all_min_x, all_max_x), (-50, all_max_y), include_club=include_club))
