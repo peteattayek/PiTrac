@@ -15,7 +15,7 @@ BALL_RADIUS_MM = BALL_DIAMETER_MM / 2
 DEFAULT_BASE_PARAMS = {
     "sensor": {
         "width_px": 1440, "height_px": 1080, "pixel_size": 3.45, 
-        "format": "1/2.9", "qe": {810: 0.21}
+        "format": "1/2.9", "qe": {730: 0.30, 780: 0.25, 810: 0.21, 850: 0.15, 940: 0.07}
     },
     "focal": 6.0,
     "aperture": 1.2,
@@ -40,37 +40,37 @@ SENSORS = {
     "IMX296 (1.6MP Global Shutter)": {
         "width_px": 1440, "height_px": 1080, "pixel_size": 3.45, "format": "1/2.9",
         "shutter": "Global", "nir_tech": None,
-        "qe": {810: 0.21, 850: 0.15, 940: 0.07}
+        "qe": {730: 0.30, 780: 0.25, 810: 0.21, 850: 0.15, 940: 0.07}
     },
     "OV9281 (1.0MP Global Shutter)": {
         "width_px": 1280, "height_px": 800, "pixel_size": 3.0, "format": "1/4",
         "shutter": "Global", "nir_tech": None,
-        "qe": {810: 0.28, 850: 0.20, 940: 0.09}
+        "qe": {730: 0.35, 780: 0.31, 810: 0.28, 850: 0.20, 940: 0.09}
     },
     "AR0234 (2.3MP Global Shutter)": {
         "width_px": 1920, "height_px": 1200, "pixel_size": 3.0, "format": "1/2.6",
         "shutter": "Global", "nir_tech": None,
-        "qe": {810: 0.25, 850: 0.19, 940: 0.07}
+        "qe": {730: 0.32, 780: 0.28, 810: 0.25, 850: 0.19, 940: 0.07}
     },
     "OS08A20 (8.3MP Rolling Shutter)": {
         "width_px": 3840, "height_px": 2160, "pixel_size": 2.0, "format": "1/1.8",
         "shutter": "Rolling", "nir_tech": "Nyxel™",
-        "qe": {810: 0.70, 850: 0.60, 940: 0.40}
+        "qe": {730: 0.75, 780: 0.72, 810: 0.70, 850: 0.60, 940: 0.40}
     },
     "OG05B1B (5.0MP Global Shutter)": {
         "width_px": 2592, "height_px": 1944, "pixel_size": 2.2, "format": "1/2.5",
         "shutter": "Global", "nir_tech": "Nyxel™",
-        "qe": {810: 0.65, 850: 0.60, 940: 0.40}
+        "qe": {730: 0.70, 780: 0.68, 810: 0.65, 850: 0.60, 940: 0.40}
     },
     "IMX678 (8.3MP Rolling Shutter)": {
         "width_px": 3840, "height_px": 2160, "pixel_size": 2.0, "format": "1/1.8",
         "shutter": "Rolling", "nir_tech": "Starvis 2",
-        "qe": {810: 0.50, 850: 0.45, 940: 0.25}
+        "qe": {730: 0.55, 780: 0.52, 810: 0.50, 850: 0.45, 940: 0.25}
     },
      "AR0822 (8.3MP Rolling Shutter)": {
         "width_px": 3840, "height_px": 2160, "pixel_size": 2.0, "format": "1/1.8",
         "shutter": "Rolling", "nir_tech": "NIR+",
-        "qe": {810: 0.58, 850: 0.49, 940: 0.29}
+        "qe": {730: 0.62, 780: 0.60, 810: 0.58, 850: 0.49, 940: 0.29}
     }
 }
 
@@ -298,10 +298,12 @@ def calculate_metrics(sensor, binning, wavelength, focal, f_stop, dist,
     
     base_params = st.session_state.base_params
     base_px_area = base_params["sensor"]["pixel_size"] ** 2
-    base_score = (base_params["sensor"]["qe"][810] * base_px_area) / ((base_params["aperture"]**2) * (base_params["distance"]**2))
-    qe = sensor["qe"].get(wavelength, 0.2)
+    base_wavelength = base_params.get('wavelength', 810)
+    base_qe = base_params["sensor"]["qe"].get(base_wavelength, base_params["sensor"]["qe"].get(810, 0.2))
+    base_score = (base_qe * base_px_area) / ((base_params["aperture"]**2) * (base_params["distance"]**2))
+    qe = sensor["qe"].get(wavelength, sensor["qe"].get(810, 0.2))
     current_score = (qe * (px_size_um**2)) / ((f_stop**2) * (dist**2))
-    bright_pct = (current_score / base_score) * 100
+    bright_pct = (current_score / base_score) * 100 if base_score > 0 else 0
     
     is_valid = True
     if not ignore_ball_fit:
@@ -601,6 +603,8 @@ if rotate_90:
     sensor = sensor.copy()
     sensor["width_px"], sensor["height_px"] = sensor["height_px"], sensor["width_px"]
 
+wavelength = st.sidebar.selectbox("Wavelength (nm)", [730, 780, 810, 850, 940], index=2)
+
 is_stereo = st.sidebar.checkbox("Stereoscopic (Dual Camera)", value=False, help="Enable calculation for dual-camera setup.")
 stereo_base_val = 0
 stereo_align = "Horizontal"
@@ -628,7 +632,7 @@ if is_stereo:
 st.sidebar.divider()
 st.sidebar.subheader("Optimization Targets")
 target_res = st.sidebar.number_input("Min Resolution (px/mm)", value=4.0, step=0.1, help="Minimum pixels per millimeter required on the ball surface.")
-target_bright = st.sidebar.number_input("Min Brightness (%)", value=80.0, step=10.0, help="Minimum relative brightness compared to the baseline setup.")
+target_bright = st.sidebar.number_input("Min Brightness (%)", value=100.0, step=10.0, help="Minimum relative brightness compared to the baseline setup.")
 if 'target_min_dist' not in st.session_state: st.session_state.target_min_dist = 254
 tmd_lbl = f"Min Distance Perpendicular to Swing (mm) - {st.session_state.target_min_dist/25.4:.1f}\""
 target_min_dist = st.sidebar.number_input(tmd_lbl, min_value=100, max_value=1000, step=10, help="Closest allowed physical distance from Camera to Tee.", key="target_min_dist")
@@ -700,7 +704,7 @@ with c_opt2:
 with c_opt3:
     st.write("") # Spacer to align
     st.write("") 
-    include_varifocal = st.checkbox("Include Varifocal Lenses", value=False) # Changed default to False
+    include_varifocal = st.checkbox("Include Varifocal Lenses", value=True)
 
 # Re-calculate compatible lenses based on checkbox state
 compatible_lenses = get_compatible_lenses(sensor, min_coverage_pct, include_varifocal)
@@ -726,9 +730,11 @@ with c_opt1:
             # We solve for d where Brightness == TargetBright
             base_params = st.session_state.base_params
             base_px_area = base_params["sensor"]["pixel_size"] ** 2
-            base_score = (base_params["sensor"]["qe"][810] * base_px_area) / ((base_params["aperture"]**2) * (base_params["distance"]**2))
+            base_wavelength = base_params.get('wavelength', 810)
+            base_qe = base_params["sensor"]["qe"].get(base_wavelength, base_params["sensor"]["qe"].get(810, 0.2))
+            base_score = (base_qe * base_px_area) / ((base_params["aperture"]**2) * (base_params["distance"]**2))
             
-            qe = sensor["qe"].get(810, 0.2)
+            qe = sensor["qe"].get(wavelength, sensor["qe"].get(810, 0.2))
             px_size_um = sensor["pixel_size"] * bin_factor
             # CurrentScore = (qe * px^2) / (aper^2 * d^2)
             # TargetScore = (target_bright / 100) * base_score
@@ -759,7 +765,7 @@ with c_opt1:
             
                 # 4. Optimize Focus Offset using Golden Section Search
                 def focus_error_func(off_val):
-                    m = calculate_metrics(sensor, use_binning, 810, f, aper, found_d_for_lens,
+                    m = calculate_metrics(sensor, use_binning, wavelength, f, aper, found_d_for_lens,
                                           include_club, num_pos, first_pos, spacing, off_val, coc_mult, 0, found_parallel_for_lens, True,
                                           is_stereo, trial_base, stereo_align)
                     if m['far_limit'] > 99999: return 0.0 # Hyperfocal achieved
@@ -769,7 +775,7 @@ with c_opt1:
                 best_off = int(golden_section_search(focus_error_func, -400, 200, tol=1.0))
                 
                 flight_d = first_pos + (num_pos - 1) * spacing
-                m_z0 = calculate_metrics(sensor, use_binning, 810, f, aper, found_d_for_lens, 
+                m_z0 = calculate_metrics(sensor, use_binning, wavelength, f, aper, found_d_for_lens, 
                                         include_club, num_pos, first_pos, spacing, best_off, coc_mult, 0, found_parallel_for_lens, True,
                                         is_stereo, trial_base, stereo_align)
                 
@@ -778,7 +784,7 @@ with c_opt1:
                 drop_mm = math.tan(math.radians(deg_diff)) * flight_d
                 optimal_cam_z = int(0 - drop_mm)
                 
-                final_m = calculate_metrics(sensor, use_binning, 810, f, aper, found_d_for_lens, 
+                final_m = calculate_metrics(sensor, use_binning, wavelength, f, aper, found_d_for_lens, 
                                           include_club, num_pos, first_pos, spacing, best_off, coc_mult, optimal_cam_z, found_parallel_for_lens, True,
                                           is_stereo, trial_base, stereo_align)
                 
@@ -818,7 +824,7 @@ min_a, max_a = min(all_apertures), max(all_apertures)
 c1, c2, c3 = st.columns(3)
 with c1: 
     # Use standard slider with full range (0.1 increments)
-    st.session_state.focal = st.slider("Focal Length (mm)", min_value=float(min_f), max_value=float(max_f), value=float(st.session_state.focal), step=0.1)
+    st.slider("Focal Length (mm)", min_value=float(min_f), max_value=float(max_f), step=0.1, key="focal")
     
     if st.button("Optimize Lens Only", help="Finds the best real lens focal length for the current distance."):
         bin_factor = 2 if use_binning else 1
@@ -832,19 +838,24 @@ with c1:
         
 with c2: 
     # Use standard slider with full range (0.1 increments)
-    st.session_state.aperture = st.slider("Aperture (f/)", min_value=float(min_a), max_value=float(max_a), value=float(st.session_state.aperture), step=0.1)
+    st.slider("Aperture (f/)", min_value=float(min_a), max_value=float(max_a), step=0.1, key="aperture")
 
     if st.button("Optimize f-stop Only", help="Finds the best real aperture (for brightness/DOF) given the current focal."):
         bin_factor = 2 if use_binning else 1
         px_mm = (sensor["pixel_size"] * bin_factor) / 1000
-        qe = sensor["qe"].get(810, 0.2)
+        qe = sensor["qe"].get(wavelength, sensor["qe"].get(810, 0.2))
         base_params = st.session_state.base_params
         base_px_area = base_params["sensor"]["pixel_size"] ** 2
-        base_score = (base_params["sensor"]["qe"][810] * base_px_area) / ((base_params["aperture"]**2) * (base_params["distance"]**2))
+        base_wavelength = base_params.get('wavelength', 810)
+        base_qe = base_params["sensor"]["qe"].get(base_wavelength, base_params["sensor"]["qe"].get(810, 0.2))
+        base_score = (base_qe * base_px_area) / ((base_params["aperture"]**2) * (base_params["distance"]**2))
         target_score = (target_bright / 100) * base_score
-        f_sq = (qe * (px_size_um := sensor["pixel_size"] * bin_factor)**2) / (target_score * st.session_state.distance**2)
-        max_f = math.sqrt(f_sq)
-        
+        if target_score > 0:
+            f_sq = (qe * (px_size_um := sensor["pixel_size"] * bin_factor)**2) / (target_score * st.session_state.distance**2)
+            max_f = math.sqrt(f_sq)
+        else:
+            max_f = 999
+
         # Look for real apertures in compatible lenses
         valid_apertures = sorted(list(set([l[2] for l in compatible_lenses])))
         valid_subset = [x for x in valid_apertures if x <= max_f]
@@ -867,7 +878,7 @@ with c3:
         for d in range(start_d, 100, -10): 
              # Use current focus offset (no optimization)
              trial_base = int(d / stereo_ratio) if is_stereo else 0
-             base_chk = calculate_metrics(sensor, use_binning, 810, st.session_state.focal, st.session_state.aperture, d,
+             base_chk = calculate_metrics(sensor, use_binning, wavelength, st.session_state.focal, st.session_state.aperture, d,
                                     include_club, num_pos, first_pos, spacing, st.session_state.focus_offset, coc_mult, 0, st.session_state.dist_parallel, True,
                                     is_stereo, trial_base, stereo_align)
              if base_chk['bright'] >= target_bright:
@@ -900,7 +911,7 @@ with c4:
         best_off = 0
         best_diff = 9999
         for off in range(-400, 200, 5):
-            m = calculate_metrics(sensor, use_binning, 810, st.session_state.focal, st.session_state.aperture, st.session_state.distance,
+            m = calculate_metrics(sensor, use_binning, wavelength, st.session_state.focal, st.session_state.aperture, st.session_state.distance,
                                 include_club, num_pos, first_pos, spacing, off, coc_mult, 0, st.session_state.dist_parallel, True,
                                 is_stereo, stereo_base_val, stereo_align)
             near = m['near_limit']
@@ -941,7 +952,7 @@ with c6:
         st.rerun()
 
 # --- CALCULATIONS ---
-vals = calculate_metrics(sensor, use_binning, 810, st.session_state.focal, st.session_state.aperture, st.session_state.distance,
+vals = calculate_metrics(sensor, use_binning, wavelength, st.session_state.focal, st.session_state.aperture, st.session_state.distance,
                         include_club, num_pos, first_pos, spacing, st.session_state.focus_offset, coc_mult, st.session_state.cam_z, st.session_state.dist_parallel, False,
                         is_stereo, stereo_base_val, stereo_align)
 
@@ -957,7 +968,7 @@ else:
     baseline_first_pos = base_params["y_pos"] - (base_fov_w / 2) + 25.4
 
 base_res = calculate_metrics(
-    base_params["sensor"], base_params["binning"], base_params["wavelength"], 
+    base_params["sensor"], base_params["binning"], base_params.get('wavelength', 810), 
     base_params["focal"], base_params["aperture"], base_params["distance"],
     base_params.get("include_club", False), num_pos, baseline_first_pos, spacing, base_params.get("focus_offset", 0), coc_mult, base_offset, base_params["y_pos"], False,
     base_params.get("is_stereo", False), base_params.get("stereo_base", 0), base_params.get("stereo_align", "Horizontal")
@@ -986,7 +997,7 @@ metrics.extend([
     ("FOV Width" if not is_stereo else "FOV Width (Overlap)", (base_res['fov_w'], base_params["distance"]), (vals['fov_w'], st.session_state.distance), "fov_complex", True),
     ("FOV Height", (base_res['fov_h'], base_params["distance"]), (vals['fov_h'], st.session_state.distance), "fov_complex", True),
     ("Resolution", base_res['res'], vals['res'], " px/mm", True),
-    ("Brightness", 100.0, vals['bright'], "%", True),
+    ("Brightness", (base_res['bright'], base_params.get('wavelength', 810)), (vals['bright'], wavelength), "brightness_complex", True),
     ("Focus Zone", 
      (base_res['dof'], base_res['near_limit'], base_res['far_limit']), 
      (vals['dof'], vals['near_limit'], vals['far_limit']), "dof_complex", True),
@@ -1008,6 +1019,14 @@ for name, base, new_val, unit, diff in metrics:
         pct_far = ((n_far - b_far)/b_far)*100
         row["Change"] = f"{pct_tot:+.1f}% [{pct_near:+.1f}%, {pct_far:+.1f}%]"
         row["status"] = "good" if pct_tot >= 0 else "bad"
+    elif unit == "brightness_complex":
+        b_val, b_wl = base
+        n_val, n_wl = new_val
+        row["Baseline"] = f"{b_val:.1f}% @{b_wl}nm"
+        row["Your Setup"] = f"{n_val:.1f}% @{n_wl}nm"
+        pct_diff = n_val - b_val
+        row["Change"] = f"{pct_diff:+.1f}%"
+        row["status"] = "pass" if n_val >= target_bright else "fail"
     elif unit == "angle_complex":
         b_min, b_max = base
         n_min, n_max = new_val
@@ -1093,7 +1112,7 @@ with b_c3:
             "distance": st.session_state.distance,
             "height_target": vals['total_cam_height'],
             "y_pos": st.session_state.dist_parallel,
-            "wavelength": 810,
+            "wavelength": wavelength,
             "binning": use_binning,
             "focus_offset": st.session_state.focus_offset,
             "first_pos": st.session_state.first_pos,
