@@ -6,7 +6,7 @@ BALL_RADIUS_MM = BALL_DIAMETER_MM / 2
 DEFAULT_BASE_PARAMS = {
     "sensor": {
         "width_px": 1440, "height_px": 1080, "pixel_size": 3.45, 
-        "format": "1/2.9", "qe": {730: 0.30, 780: 0.25, 810: 0.21, 850: 0.15, 940: 0.07}
+        "format": "1/2.9", "qe": {730: 0.35, 780: 0.22, 810: 0.15, 850: 0.10, 940: 0.02}
     },
     "focal": 6.0,
     "aperture": 1.2,
@@ -26,46 +26,89 @@ DEFAULT_BASE_PARAMS = {
 SENSORS = {
     "IMX296 (1.6MP Global Shutter)": {
         "width_px": 1440, "height_px": 1080, "pixel_size": 3.45, "format": "1/2.9",
-        "shutter": "Global", "nir_tech": None,
-        "qe": {730: 0.30, 780: 0.25, 810: 0.21, 850: 0.15, 940: 0.07}
+        "shutter": "Global (Pregius Gen2)", "nir_tech": None,
+        "qe": {730: 0.35, 780: 0.22, 810: 0.15, 850: 0.10, 940: 0.02}
     },
-    "OV9281 (1.0MP Global Shutter)": {
+    "OG02B10 (2.1MP Global Shutter)": {
+        "width_px": 1600, "height_px": 1300, "pixel_size": 3.0, "format": "1/2.9",
+        "shutter": "Global (OmniPixel3-GS)", "nir_tech": None,
+        "qe": {730: 0.28, 780: 0.24, 810: 0.22, 850: 0.20, 940: 0.08}
+    },
+    "AR0144 (1.0MP Global Shutter)": {
         "width_px": 1280, "height_px": 800, "pixel_size": 3.0, "format": "1/4",
         "shutter": "Global", "nir_tech": None,
-        "qe": {730: 0.35, 780: 0.31, 810: 0.28, 850: 0.20, 940: 0.09}
+        "qe": {730: 0.38, 780: 0.25, 810: 0.22, 850: 0.18, 940: 0.10}
     },
     "AR0234 (2.3MP Global Shutter)": {
         "width_px": 1920, "height_px": 1200, "pixel_size": 3.0, "format": "1/2.6",
-        "shutter": "Global", "nir_tech": None,
-        "qe": {730: 0.32, 780: 0.28, 810: 0.25, 850: 0.19, 940: 0.07}
+        "shutter": "Global (BSI-2)", "nir_tech": None,
+        "qe": {730: 0.27, 780: 0.20, 810: 0.19, 850: 0.17, 940: 0.08}
     },
-    "OS08A20 (8.3MP Rolling Shutter)": {
-        "width_px": 3840, "height_px": 2160, "pixel_size": 2.0, "format": "1/1.8",
-        "shutter": "Rolling", "nir_tech": "Nyxel™",
-        "qe": {730: 0.75, 780: 0.72, 810: 0.70, 850: 0.60, 940: 0.40}
-    },
-    "OG05B1B (5.0MP Global Shutter)": {
+    "AR0522 (5.0MP Rolling Shutter)": {
         "width_px": 2592, "height_px": 1944, "pixel_size": 2.2, "format": "1/2.5",
-        "shutter": "Global", "nir_tech": "Nyxel™",
-        "qe": {730: 0.70, 780: 0.68, 810: 0.65, 850: 0.60, 940: 0.40}
+        "shutter": "Rolling", "nir_tech": None,
+        "qe": {730: 0.52, 780: 0.34, 810: 0.30, 850: 0.25, 940: 0.07}
     },
-    "IMX678 (8.3MP Rolling Shutter)": {
+    "AR0822 (8.3MP Rolling Shutter)": {
         "width_px": 3840, "height_px": 2160, "pixel_size": 2.0, "format": "1/1.8",
-        "shutter": "Rolling", "nir_tech": "Starvis 2",
-        "qe": {730: 0.55, 780: 0.52, 810: 0.50, 850: 0.45, 940: 0.25}
+        "shutter": "Rolling (Hyperlux LH)", "nir_tech": None,
+        "qe": {730: 0.72, 780: 0.62, 810: 0.55, 850: 0.48, 940: 0.28}
     },
-     "AR0822 (8.3MP Rolling Shutter)": {
-        "width_px": 3840, "height_px": 2160, "pixel_size": 2.0, "format": "1/1.8",
-        "shutter": "Rolling", "nir_tech": "NIR+",
-        "qe": {730: 0.62, 780: 0.60, 810: 0.58, 850: 0.49, 940: 0.29}
+    "VD56G3 (1.5MP Global Shutter)": {
+        "width_px": 1124, "height_px": 1364, "pixel_size": 2.61, "format": "1/4",
+        "shutter": "Global (BSI+3D stack+DTI)", "nir_tech": "DTI",
+        "qe": {730: 0.65, 780: 0.50, 810: 0.42, 850: 0.33, 940: 0.18}
+    },
+    "SC132GS (1.4MP Global Shutter)": {
+        "width_px": 1280, "height_px": 1080, "pixel_size": 2.7, "format": "1/4",
+        "shutter": "Global (SmartGS 1st gen)", "nir_tech": None,
+        "qe": {730: 0.43, 780: 0.38, 810: 0.35, 850: 0.30, 940: 0.11}
+    },
+    "SC233HGS (2.3MP Global Shutter)": {
+        "width_px": 1920, "height_px": 1200, "pixel_size": 3.0, "format": "1/2.6",
+        "shutter": "Global (SmartGS-2 Plus)", "nir_tech": "DTI",
+        "qe": {730: 0.62, 780: 0.48, 810: 0.40, 850: 0.32, 940: 0.20}
+    },
+    "VD1940 (5.1MP Global+Rolling Shutter)": {
+        "width_px": 2560, "height_px": 1984, "pixel_size": 2.25, "format": "1/2.5",
+        "shutter": "Global+Rolling (BSI+3D stack+DTI)", "nir_tech": "DTI",
+        "qe": {730: 0.62, 780: 0.46, 810: 0.38, 850: 0.28, 940: 0.14}
+    },
+    "OG05B10 (5.0MP Global Shutter)": {
+        "width_px": 2592, "height_px": 1944, "pixel_size": 2.2, "format": "1/2.53",
+        "shutter": "Global (PureCel Plus-S, Nyxel)", "nir_tech": "Nyxel",
+        "qe": {730: 0.35, 780: 0.35, 810: 0.45, 850: 0.60, 940: 0.40}
+    },
+    "ISG1321 (1.4MP Global Shutter)": {
+        "width_px": 1280, "height_px": 1080, "pixel_size": 2.7, "format": "1/4",
+        "shutter": "Global (BSI)", "nir_tech": "Unknown (likely DTI or similar)",
+        "qe": {730: 0.70, 780: 0.65, 810: 0.62, 850: 0.60, 940: 0.30}
+    },
+    "OV9281 (1.0MP Global Shutter)": {
+        "width_px": 1280, "height_px": 800, "pixel_size": 3.0, "format": "1/4",
+        "shutter": "Global (OmniPixel3-GS)", "nir_tech": None,
+        "qe": {730: 0.46, 780: 0.38, 810: 0.35, 850: 0.30, 940: 0.14}
+    },
+    "OV7251 (0.3MP Global Shutter)": {
+        "width_px": 640, "height_px": 480, "pixel_size": 3.0, "format": "1/7.5",
+        "shutter": "Global (OmniPixel3-GS)", "nir_tech": None,
+        "qe": {730: 0.46, 780: 0.38, 810: 0.35, 850: 0.30, 940: 0.14}
     }
 }
+
+SENSOR_NAMES_BY_MP = sorted(
+    SENSORS.keys(),
+    key=lambda name: ((SENSORS[name]["width_px"] * SENSORS[name]["height_px"]), name)
+)
+DEFAULT_SENSOR_NAME = "IMX296 (1.6MP Global Shutter)"
+DEFAULT_SENSOR_INDEX = SENSOR_NAMES_BY_MP.index(DEFAULT_SENSOR_NAME) if DEFAULT_SENSOR_NAME in SENSOR_NAMES_BY_MP else 0
 
 sensor_help_text = """
 | Sensor | Shutter | Pixel (µm) | MP | W x H | 2x2 Pixel | 2x2 MP | 2x2 WxH |
 | :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
 """
-for name, s in SENSORS.items():
+for name in SENSOR_NAMES_BY_MP:
+    s = SENSORS[name]
     short_name = name.split(' ')[0]
     shutter = s['shutter']
     px = s['pixel_size']

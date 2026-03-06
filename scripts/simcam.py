@@ -3,7 +3,13 @@ import pandas as pd
 import math
 import matplotlib.pyplot as plt
 from simcam_data import (
-    DEFAULT_BASE_PARAMS, SENSORS, LENS_DATABASE, BALL_DIAMETER_MM, sensor_help_text
+    DEFAULT_BASE_PARAMS,
+    SENSORS,
+    SENSOR_NAMES_BY_MP,
+    DEFAULT_SENSOR_INDEX,
+    LENS_DATABASE,
+    BALL_DIAMETER_MM,
+    sensor_help_text,
 )
 from simcam_calc import (
     get_compatible_lenses, find_nearest, golden_section_search, calculate_metrics
@@ -68,7 +74,12 @@ with st.sidebar.expander("❓ How to Use this Calculator"):
 
 # Sidebar
 st.sidebar.header("Sensor Config")
-sensor_name = st.sidebar.selectbox("Select Sensor", list(SENSORS.keys()), help=sensor_help_text)
+sensor_name = st.sidebar.selectbox(
+    "Select Sensor",
+    SENSOR_NAMES_BY_MP,
+    index=DEFAULT_SENSOR_INDEX,
+    help=sensor_help_text,
+)
 sensor = SENSORS[sensor_name]
 
 use_binning = st.sidebar.checkbox("Enable 2x2 Binning", value=False, help="Combines 4 pixels into 1. Increases light sensitivity but halves resolution.")
@@ -78,7 +89,7 @@ if rotate_90:
     sensor = sensor.copy()
     sensor["width_px"], sensor["height_px"] = sensor["height_px"], sensor["width_px"]
 
-wavelength = st.sidebar.selectbox("Wavelength (nm)", [730, 780, 810, 850, 940], index=2)
+wavelength = st.sidebar.selectbox("Wavelength (nm)", [730, 780, 810, 850, 940], index=3)
 
 is_stereo = st.sidebar.checkbox("Stereoscopic (Dual Camera)", value=False, help="Enable calculation for dual-camera setup.")
 stereo_base_val = 0
@@ -111,7 +122,7 @@ target_bright = st.sidebar.number_input("Min Brightness (%)", value=100.0, step=
 if 'target_min_dist' not in st.session_state: st.session_state.target_min_dist = 254
 tmd_lbl = f"Min Distance Perpendicular to Swing (mm) - {st.session_state.target_min_dist/25.4:.1f}\""
 target_min_dist = st.sidebar.number_input(tmd_lbl, min_value=100, max_value=1000, step=10, help="Closest allowed physical distance from Camera to Tee.", key="target_min_dist")
-target_min_vla = st.sidebar.number_input("Min Vert Launch Angle (deg)", value=0.0, step=1.0, help="Required vertical floor angle (0 deg means camera sees the floor).")
+target_min_vla = st.sidebar.number_input("Min Vert Launch Angle (deg)", value=-4.0, step=1.0, help="Required vertical floor angle (0 deg means camera sees the floor).")
 
 coc_help = """
 **In simple terms: Blur Tolerance.**
@@ -140,6 +151,23 @@ if 'dist_parallel' not in st.session_state: st.session_state.dist_parallel = 127
 if 'focus_offset' not in st.session_state: st.session_state.focus_offset = 0
 if 'cam_z' not in st.session_state: st.session_state.cam_z = 0
 if 'last_club_state' not in st.session_state: st.session_state.last_club_state = include_club
+
+def _dynamic_slider_bounds(value, base_min, base_max, step):
+    """Expand slider bounds so the current value is always in range."""
+    value = float(value)
+    base_min = float(base_min)
+    base_max = float(base_max)
+    step = float(step)
+
+    if step <= 0:
+        return base_min, base_max
+
+    min_expand_steps = math.ceil(max(0.0, base_min - value) / step)
+    max_expand_steps = math.ceil(max(0.0, value - base_max) / step)
+
+    dyn_min = base_min - (min_expand_steps * step)
+    dyn_max = base_max + (max_expand_steps * step)
+    return round(dyn_min, 6), round(dyn_max, 6)
 
 # Initialize Parallel Distance Once if not set (Smart Init)
 if 'dist_parallel_init' not in st.session_state:
@@ -295,11 +323,18 @@ all_apertures = sorted(list(set([l[2] for l in LENS_DATABASE])))
 min_f, max_f = min(all_focals), max(all_focals)
 min_a, max_a = min(all_apertures), max(all_apertures)
 
+focal_min_dyn, focal_max_dyn = _dynamic_slider_bounds(st.session_state.focal, min_f, max_f, 0.1)
+ap_min_dyn, ap_max_dyn = _dynamic_slider_bounds(st.session_state.aperture, min_a, max_a, 0.1)
+dist_min_dyn, dist_max_dyn = _dynamic_slider_bounds(st.session_state.distance, 100, 1000, 1)
+focus_min_dyn, focus_max_dyn = _dynamic_slider_bounds(st.session_state.focus_offset, -400, 200, 5)
+camz_min_dyn, camz_max_dyn = _dynamic_slider_bounds(st.session_state.cam_z, -500, 500, 5)
+parallel_min_dyn, parallel_max_dyn = _dynamic_slider_bounds(st.session_state.dist_parallel, -200, 600, 1)
+
 # --- MANUAL INPUTS ---
 c1, c2, c3 = st.columns(3)
 with c1: 
     # Use standard slider with full range (0.1 increments)
-    st.slider("Focal Length (mm)", min_value=float(min_f), max_value=float(max_f), step=0.1, key="focal")
+    st.slider("Focal Length (mm)", min_value=float(focal_min_dyn), max_value=float(focal_max_dyn), step=0.1, key="focal")
     
     if st.button("Optimize Lens Only", help="Finds the best real lens focal length for the current distance."):
         bin_factor = 2 if use_binning else 1
@@ -313,7 +348,7 @@ with c1:
         
 with c2: 
     # Use standard slider with full range (0.1 increments)
-    st.slider("Aperture (f/)", min_value=float(min_a), max_value=float(max_a), step=0.1, key="aperture")
+    st.slider("Aperture (f/)", min_value=float(ap_min_dyn), max_value=float(ap_max_dyn), step=0.1, key="aperture")
 
     if st.button("Optimize f-stop Only", help="Finds the best real aperture (for brightness/DOF) given the current focal."):
         bin_factor = 2 if use_binning else 1
@@ -341,7 +376,7 @@ with c2:
 
 with c3: 
     dist_lbl = f"Distance Perpendicular to Swing (mm) - {st.session_state.distance/25.4:.1f}\""
-    st.slider(dist_lbl, 100, 1000, step=1, help="Horizontal distance from Lens to Tee.", key="distance")
+    st.slider(dist_lbl, int(dist_min_dyn), int(dist_max_dyn), step=1, help="Horizontal distance from Lens to Tee.", key="distance")
     if st.button("Optimize Dist Only", help="Finds the maximum distance that satisfies the Resolution and Brightness targets."):
         bin_factor = 2 if use_binning else 1
         px_mm = (sensor["pixel_size"] * bin_factor) / 1000
@@ -381,7 +416,7 @@ else:
 c4, c5, c6 = st.columns(3)
 with c4: 
     fo_lbl = f"Focus Offset (mm) - {st.session_state.focus_offset/25.4:.1f}\""
-    st.slider(fo_lbl, -400, 200, step=5, help="Shifts the focal plane closer (-) or further (+).", key="focus_offset")
+    st.slider(fo_lbl, int(focus_min_dyn), int(focus_max_dyn), step=5, help="Shifts the focal plane closer (-) or further (+).", key="focus_offset")
     if st.button("Optimize Focus Only", help="Adjusts focus offset to center the Depth of Field around the Tee."):
         best_off = 0
         best_diff = 9999
@@ -401,7 +436,7 @@ with c4:
 
 with c5: 
     cz_lbl = f"Vert Cam Offset (mm) - {st.session_state.cam_z/25.4:.1f}\""
-    st.slider(cz_lbl, -500, 500, step=5, help="0 = Bottom of FOV aligns with Tee level (0°). Positive values raise the camera.", key="cam_z")
+    st.slider(cz_lbl, int(camz_min_dyn), int(camz_max_dyn), step=5, help="0 = Bottom of FOV aligns with Tee level (0°). Positive values raise the camera.", key="cam_z")
     if st.button("Optimize Vert Cam Only", help="Adjusts vertical height to meet the Min Vert Launch Angle target."):
         flight_d = first_pos + (num_pos - 1) * spacing
         offset_needed = math.tan(math.radians(target_min_vla)) * flight_d
@@ -410,7 +445,7 @@ with c5:
 
 with c6:
     dp_lbl = f"Distance Parallel to Swing (mm) - {st.session_state.dist_parallel/25.4:.1f}\""
-    st.slider(dp_lbl, -200, 600, step=1, help="Shift Camera Left/Right along the swing line.", key="dist_parallel")
+    st.slider(dp_lbl, int(parallel_min_dyn), int(parallel_max_dyn), step=1, help="Shift Camera Left/Right along the swing line.", key="dist_parallel")
     if st.button("Optimize Parallel Only", help="Aligns bottom edge of FOV based on selected mode (1 inch below ball or -5 inches for club)."):
         bin_factor = 2 if use_binning else 1
         px_mm = (sensor["pixel_size"] * bin_factor) / 1000
