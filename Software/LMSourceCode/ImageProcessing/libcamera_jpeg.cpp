@@ -98,7 +98,7 @@ bool ball_flight_camera_event_loop(LibcameraJpegApp& app, cv::Mat& returnImg)
 		return false;
 	}
 
-	GS_LOG_TRACE_MSG(trace, "ball_flight_camera_event_loop started.  Opening Camera at slot: " + std::to_string(options->camera));
+	GS_LOG_TRACE_MSG(trace, "ball_flight_camera_event_loop started.  Opening Camera at slot: " + std::to_string(options->Set().camera));
 
 
 	app.OpenCamera();
@@ -416,7 +416,7 @@ bool ball_flight_camera_event_loop(LibcameraJpegApp& app, cv::Mat& returnImg)
 		libcamera::logSetLevel("*", "ERROR"); 
 		RPiCamApp::verbosity = 0;
 
-		options->no_raw = true;  // See https://forums.raspberrypi.com/viewtopic.php?t=369927
+		options->Set().no_raw = true;  // See https://forums.raspberrypi.com/viewtopic.php?t=369927
 
 		app.StartCamera();
 		GS_LOG_TRACE_MSG(trace, "Camera started.");
@@ -457,7 +457,7 @@ bool ball_flight_camera_event_loop(LibcameraJpegApp& app, cv::Mat& returnImg)
 				GS_LOG_TRACE_MSG(trace, "still_image_event_loop received msg -- in viewfinder.");
 
 				auto now = std::chrono::high_resolution_clock::now();
-				if (options->timeout && now - start_time > std::chrono::milliseconds(options->timeout.get<std::chrono::milliseconds>()))
+				if (options->Set().timeout && now - start_time > std::chrono::milliseconds(options->Set().timeout.get<std::chrono::milliseconds>()))
 				{
 					GS_LOG_TRACE_MSG(warning, "still_image_event_loop timed out. -- in viewfinder.");
 					app.StopCamera();

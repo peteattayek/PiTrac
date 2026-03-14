@@ -12,6 +12,7 @@
 #include "gs_ui_system.h"
 #include "gs_config.h"
 #include "gs_clubs.h"
+#include "gs_shot_parameters.h"
 
 #include "libcamera_interface.h"
 
@@ -129,6 +130,9 @@ namespace golf_sim {
     float GolfSimCamera::kVLAOffsetAngleDegrees = 0.0;
 
 
+    bool GolfSimCamera::kUseOnlyHighQualityBallImagesForHLA = true;
+
+
     GolfSimCamera::GolfSimCamera() {
 
         // TBD - Probably shouldn't be doing all of this in the constructor
@@ -138,7 +142,6 @@ namespace golf_sim {
         GolfSimConfiguration::SetConstant("gs_config.logging.kLogIntermediateExposureImagesToFile", kLogIntermediateExposureImagesToFile);
         GolfSimConfiguration::SetConstant("gs_config.logging.kLogWebserverImagesToFile", kLogWebserverImagesToFile);
         GolfSimConfiguration::SetConstant("gs_config.logging.kLogDiagnosticImagesToUniqueFiles", kLogDiagnosticImagesToUniqueFiles);
-
 
         GolfSimConfiguration::SetConstant("gs_config.ball_exposure_selection.kMaximumOffTrajectoryDistance", kMaximumOffTrajectoryDistance);
         GolfSimConfiguration::SetConstant("gs_config.ball_exposure_selection.kNumberHighQualityBallsToRetain", kNumberHighQualityBallsToRetain);
@@ -1706,6 +1709,21 @@ namespace golf_sim {
             }
         }
 
+        bool GolfSimCamera::BallIsInBallVector(const GolfBall& search_ball, const GsBallsAndTimingVector& ball_vector) {
+            bool found_ball = false;
+
+            for (int i = 0; i < (int)ball_vector.size(); i++) {
+                const GolfBall& ball = ball_vector[i].ball;
+
+                if (ball == search_ball) {
+                    found_ball = true;
+                    break;
+                }
+            }
+
+            return found_ball;
+        }
+
         uint GolfSimCamera::RemoveOverlappingBalls(const std::vector<GolfBall>& initial_balls, 
                                                    const double ball_proximity_margin_percent,
                                                    const bool attempt_removal_of_off_trajectory_balls,
@@ -1725,7 +1743,9 @@ namespace golf_sim {
             // Start with the ball that is most likely to be in the clear, and then go toward the tee
             // until the intervals are so short that the ball images overlap.
             // The loop iterates right-to-left in the right-hand case.
-            // TBD - What about left-handed??
+            // For left-handed shots, the image will already be reversed, so this algorithm will work
+            // the same way for those shots.
+
             for (int i = (int)initial_balls.size() - 1; i >= 0; i--) {
                 const GolfBall& ball = initial_balls[i];
 
@@ -2029,7 +2049,7 @@ namespace golf_sim {
             GsColorTriplet expectedBallRGBMedian{ statistics[1] };
             GsColorTriplet expectedBallRGBStd{ statistics[2] };
 
-            // Expect that the expected_best_ball will not be removed from the vector, as it's differences 
+            // Expect that the expected_best_ball will not be removed from the vector, as its differences 
             // should be zero.
 
             for (int i = (int)initial_balls.size() - 1; i >= 0; i--) {
@@ -3501,25 +3521,45 @@ namespace golf_sim {
                 }
             }
 
-            GS_LOG_TRACE_MSG(trace, "ProcessReceivedCam2Image - ball2 (with delta information) is:\n" + ball2.Format());
+            GS_LOG_TRACE_MSG(trace, "ProcessReceivedCam2Image - ball2 (with delta information, and after accounting for golfer handed-ness) is:\n" + ball2.Format());
 
 
             // At this point, ball2 now holds the important delta information from which things like velocity will be
             // computed.  Transfer all of that to the result ball.
             result_ball = ball2;
 
-            // Next, calculate launch and side angles as between the initial, stationary, ball and each of
+            // Note - we could've theoretically calculated everything from just those two balls.
+            // However, the following code attempts to create better measurements be including (mostly averaged)
+            // information using the other balls, including the teed-ball position.  Much of the data in the
+            // "result ball" (which is really just carrying the shot parameters as a payload) will be
+            // overwritten below.
+
+            // Next, calculate launch and side angles (VLA and HLA) as between the initial, stationary, ball and each of
             // the strobed images.  Given the distance from the initial ball and the later in-flight
             // exposures, the average angles should be pretty accurate, even if, for example, there is
             // some noisy calculations of the radius of the strobed ball exposures.
             // TBD - Because the ball moves in a non-linear manner for the period of time that the ball
-            // is in contact with the club, we may want to compute the Ball Deltas using only the strobed 
-            // balls!  
+            // is in contact with the club, we may want to compute the Ball Deltas using only the later-strobed 
+            // balls if the balls are still in contact with the club.  
+
+            GolfSimConfiguration::SetConstant("gs_config.ball_exposure_selection.kUseOnlyHighQualityBallImagesForHLA", kUseOnlyHighQualityBallImagesForHLA);
+            GS_LOG_MSG(trace, "ProcessReceivedCam2Image - kUseOnlyHighQualityBallImagesForHLA = " + std::string(kUseOnlyHighQualityBallImagesForHLA ? "True" : "False") );
 
             std::vector<GolfBall> camera1_average_ball_vector;
 
+            // As we go though the balls to create the set of balls whose properties (e.g., speed, HLA) will be averaged, we
+            // can't remove so many overlapping balls that we don't have enough left to get a good quality averaage.
+
+            const int minimum_number_of_balls_to_use_for_averaging = 3;  // 3 is somewhat arbitrary.  Could probably be 2, but the radii measurements are noisy.
+            int max_number_of_balls_to_remove_from_hla_averaging = std::max(0, ((int)return_balls_and_timing.size() - minimum_number_of_balls_to_use_for_averaging));
+            int number_balls_removed_from_hla_averaging = 0;
+
+
             for (size_t first_index = 0; first_index < return_balls_and_timing.size(); first_index++) {
                 GolfBall& ball2 = return_balls_and_timing[first_index].ball;
+
+                // By default we use each ball to average all the parameters
+                ball2.shot_parameters_.SetParameter(GsShotParameters::ShotParameter::kShotParameterAll, true);
 
                 // Now get the locations so that the spin analysis can work
                 if (!camera_1.ComputeBallDeltas(calibrated_ball, ball2, camera_1, camera_2)) {
@@ -3536,6 +3576,41 @@ namespace golf_sim {
 
                 GS_LOG_TRACE_MSG(trace, "ProcessReceivedCam2Image - Strobed Ball (for averaging) is:\n" + ball2.Format());
 
+                if (kUseOnlyHighQualityBallImagesForHLA && (number_balls_removed_from_hla_averaging < max_number_of_balls_to_remove_from_hla_averaging)) {
+
+                    // If we are only using the better balls for calculating HLA, then we need to do some additional
+                    // processing to see if the ball is a high quality (e.g., non-overlapping, not too far to the left side of the screen, etc.)
+                    // and informa the averaging function of whether this (current) ball should be used in the HLA averaging
+
+                    // If the ball is overlapping, its radius is likely to be less accurate, and it is also closer to the
+					// teed ball that we are using as a second point to determine the ball HLAs.  
+                    // So, if the ball is overlapping, we will exclude it from the HLA averaging, but we will still use it
+                    // for averaging the VLA and other parameters.
+
+					// One might ask why we don't just remove the overlapping balls from ALL of the averaging.  The reason is that, even if a ball is overlapping, it may still have a pretty good VLA and speed measurement, and we don't want to throw away good data if we don't have to.  So, we will just exclude it from the HLA averaging, which is the most sensitive to having an accurate radius measurement.
+
+                    if (!BallIsInBallVector(ball2, non_overlapping_balls_and_timing)) {
+                        GS_LOG_MSG(trace, "Removing ball number " + std::to_string(first_index) + " from HLA calculation because it overlaps with other balls.");
+                        ball2.shot_parameters_.SetParameter(GsShotParameters::ShotParameter::kHLA, false);
+                        number_balls_removed_from_hla_averaging++;
+                    }
+                    else {
+                        // Likely high-quality balls will be the balls that are further away from the teed ball.  If we have sufficient ball images
+                        // to ignore some of them, do so.  This is an alterative basis for reomoving a ball from the HLA calculation
+                        // It's useful because in some cases, the system may not be able to recognize that two balls are overlapping.
+                        if (return_balls_and_timing.size() >= minimum_number_of_balls_to_use_for_averaging) {
+                            int balls_to_ignore = static_cast<int>(std::floor(return_balls_and_timing.size() / 2.0f));
+
+                            if (first_index < (size_t)balls_to_ignore) {
+                                GS_LOG_MSG(trace, "Removing ball number " + std::to_string(first_index) + " from HLA calculation because it is one of the closer balls to the tee position, and we have sufficient other balls.");
+                                ball2.shot_parameters_.SetParameter(GsShotParameters::ShotParameter::kHLA, false);
+                                number_balls_removed_from_hla_averaging++;
+                            }
+                        }
+                    }
+                }
+
+                GS_LOG_MSG(trace, "Final Ball2 parameters_to_average: = " + ball2.shot_parameters_.Format());
 
                 // Get ready to average the measurements of this calculated ball with any others
                 camera1_average_ball_vector.push_back(ball2);
@@ -3546,12 +3621,12 @@ namespace golf_sim {
             // Doesn't really make sense to average the two pairs of balls' distances, for example,
             // as those would be different by design since it's (usually) different pairs
             GolfBall camera1_averaged_ball;
-            GolfBall::AverageBalls(camera1_average_ball_vector, camera1_averaged_ball);
+            GolfBall::AverageBalls(camera1_average_ball_vector, camera1_averaged_ball, false);
 
             GS_LOG_TRACE_MSG(trace, "Averaged angles from the initial, stationary ball to each strobed ball:\n" + camera1_averaged_ball.Format());
 
             // Initially overwrite the angle information with the (hopefully) more accurate angles formed by the
-            // initial ball to each of the strobed balls
+            // initial ball to each of the strobed balls as just calculated above.
             result_ball.angles_ball_perspective_ = camera1_averaged_ball.angles_ball_perspective_;
             result_ball.angles_camera_ortho_perspective_ = camera1_averaged_ball.angles_camera_ortho_perspective_;
 
@@ -3589,7 +3664,11 @@ namespace golf_sim {
 
 
 
-            // Overwrite the VLA angle information with the (hopefully) more accurate angles formed by the angles between each of the strobed balls
+            // Overwrite the VLA angle information with the (hopefully) more accurate angles formed by 
+            // the angles between each of the strobed balls.
+            // This VLA is likely more accurate because the ball gets moved along from the tee for a short
+			// distance before it gets airborne, and that movement is likely to be more accurately captured 
+            // by the angles between the strobed balls than by the angles between the initial ball and the strobed balls.
             result_ball.angles_ball_perspective_[1] = average_of_strobed_ball_data.angles_ball_perspective_[1];
 
             // Send a quick IPCResult message here to allow the user to quickly
@@ -3640,7 +3719,7 @@ namespace golf_sim {
             GolfSimConfiguration::SetConstant("gs_config.cameras.kVLAOffset", vla_offset);
             GolfSimConfiguration::SetConstant("gs_config.cameras.kHLAOffset", hla_offset);
 
-            if (hla_offset > 0.01 || vla_offset > 0.01) {
+            if (std::abs(hla_offset) > 0.01 || std::abs(vla_offset) > 0.01) {
                 GS_LOG_MSG(trace, "Applying HLA offset of " + std::to_string(hla_offset) + " and VLA offset of " + std::to_string(vla_offset) + " to results.");
 			}
 

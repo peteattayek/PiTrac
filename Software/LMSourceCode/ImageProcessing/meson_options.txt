@@ -40,7 +40,7 @@ option('enable_opencv',
 
 option('enable_tflite',
         type : 'boolean',
-        value : false,
+        value : true,
         description : 'Enable Tensorflow Lite postprocessing support')
 
 option('neon_flags',
@@ -48,3 +48,18 @@ option('neon_flags',
         choices: ['arm64', 'armv8-neon', 'auto'],
         value : 'auto',
         description : 'User selectable arm-neon optimisation flags')
+
+option('enable_hailo',
+        type : 'boolean',
+        value : true,
+        description : 'Enable Hailo postprocessing support')
+
+option('enable_imx500',
+        type : 'boolean',
+        value : false,
+        description : 'Enable IMX500 postprocessing support')
+
+option('disable_rpi_booleans',
+        type : 'boolean',
+        value : false,
+        description : 'Disable use Raspberry Pi specific extensions in the build')

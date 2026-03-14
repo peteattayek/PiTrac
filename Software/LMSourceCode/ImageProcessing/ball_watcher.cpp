@@ -60,7 +60,7 @@ bool ball_watcher_event_loop(RPiCamEncoder &app, bool & motion_detected)
 
 	app.OpenCamera();
 
-	app.ConfigureVideo(get_colourspace_flags(options->codec));
+	app.ConfigureVideo(get_colourspace_flags(options->Get().codec));
 	GS_LOG_TRACE_MSG(trace, "ball_watcher_event_loop - starting encoder.");
 	app.StartEncoder();
 	app.StartCamera();

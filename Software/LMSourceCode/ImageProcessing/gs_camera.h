@@ -206,6 +206,7 @@ namespace golf_sim {
         static float kHLAOffsetAngleDegrees;
         static float kVLAOffsetAngleDegrees;
 
+        static bool kUseOnlyHighQualityBallImagesForHLA;
 
         // Refers to the camera_hardware device object associated with this higher-level camera object
         CameraHardware camera_hardware_;
@@ -534,6 +535,8 @@ namespace golf_sim {
         static int GetExpectedBallRadiusPixels(const CameraHardware& camera_hardware, const int resolution_x_, const double distance);
         static int GetExpectedBallRadiusPixelsUsingKnownFocalLength(const CameraHardware& camera_hardware, const int resolution_x_, const double distance);
 
+        static bool BallIsInBallVector(const GolfBall& search_ball, const GsBallsAndTimingVector& ball_vector);
+
     private:
 
         // Return the distance of the ball in meters
@@ -543,3 +546,4 @@ namespace golf_sim {
         static double ComputeDistanceToBallUsingRadius(const GolfSimCamera& camera, const GolfBall& ball);
     };
 }
+

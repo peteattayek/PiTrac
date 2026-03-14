@@ -469,7 +469,7 @@ bool testAnalyzeStrobedBalls() {
     std::string kTwoImageTestPreImage;
 
     GolfSimConfiguration::SetConstant("gs_config.testing.kTwoImageTestTeedBallImage", kTwoImageTestTeedBallImage);
-    GolfSimConfiguration::SetConstant("gs_config.testing.kTwoImageTestStrobedImage", kTwoImageTestStrobedImage);
+    GolfSimConfiguration::SetConstant("gs_config.testing.kTwoImageTestStrobedBallImage", kTwoImageTestStrobedImage);
     GolfSimConfiguration::SetConstant("gs_config.testing.kTwoImageTestPreImage", kTwoImageTestPreImage);
 
     const std::string kTestCamImageFileName_00 = kTwoImageTestTeedBallImage;
@@ -1574,7 +1574,7 @@ int main(int argc, char *argv[])
 
         GolfSimOptions::GetCommandLineOptions().Print();
 
-        std::string config_file_name = "golf_sim_config.json";
+        std::string config_file_name = ".pitrac/config/generated_golf_sim_config.json";
 
         if (!GolfSimOptions::GetCommandLineOptions().config_file_.empty()) {
             config_file_name = GolfSimOptions::GetCommandLineOptions().config_file_;
@@ -1612,6 +1612,28 @@ int main(int argc, char *argv[])
 
         // Load BallImageProc configuration values after JSON config is loaded
         BallImageProc::LoadConfigurationValues();
+
+	// If we have a version 3 Connector Board, then we want to ensure
+	// that it has been properly calibrated before we let the system
+	// run.
+        int kConnectionBoardVersionIntValue = 0;
+        GolfSimConfiguration::SetConstant("gs_config.strobing.kConnectionBoardVersion", kConnectionBoardVersionIntValue);
+        GolfSimConfiguration::ConnectionBoardType kConnectionBoardVersion = (GolfSimConfiguration::ConnectionBoardType)kConnectionBoardVersionIntValue;
+
+	if (kConnectionBoardVersion == GolfSimConfiguration::ConnectionBoardType::kVersion3_0) {
+            	GS_LOG_MSG(trace, "PiTrac is using a Version 3 Control Board, checking calibration.");
+
+		// If the board has been calibrated, there will be a value
+		// in the user_settings.json file
+
+        	int connector_board_dac_setting = -1;
+	        GolfSimConfiguration::SetConstant("gs_config.strobing.kDAC_setting", connector_board_dac_setting);
+
+		if (connector_board_dac_setting < 0) {
+            		GS_LOG_MSG(error, "PiTrac is using a Version 3 Control Board, but the board does not appear to have been calibrated.  Shutting down.");
+            		return 0;
+		}
+	}
 
         run_main(argc, argv);
 

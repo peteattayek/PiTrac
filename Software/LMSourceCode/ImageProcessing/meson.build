@@ -79,14 +79,21 @@ msgpack_dep = dependency('msgpack-cxx', required : true)
 yamlcpp_dep = dependency('yaml-cpp', required : true)
 onnxruntime_dep = dependency('onnxruntime', required : true)
 
+
+summary({
+            'location' : libcamera_dep.get_variable('libdir'),
+            'version' : libcamera_dep.version()
+        },
+        section : 'libcamera')
+
 rpicam_app_src = []
 rpicam_app_dep = [libcamera_dep, lgpio_dep]
 
+conf_data = configuration_data()
 
 pitrac_lm_module_deps = [
 	libcamera_dep, thread_dep, opencv_dep, lgpio_dep, rpicam_app_dep,
 	fmt_dep, boost_dep, activemq_dep, ssl_dep, apr_dep, msgpack_dep, yamlcpp_dep, onnxruntime_dep,]
-
 
 
 subdir('core')
@@ -96,6 +103,7 @@ subdir('output')
 subdir('preview')
 subdir('post_processing_stages')
 
+configure_file(output : 'config.h', configuration : conf_data)
 
 # Generate a version string.
 version_cmd = [meson.project_source_root() / 'utils' / 'version.py', meson.project_version()]
@@ -193,6 +201,7 @@ pitrac_lm_sources += ([
 			'gs_club_data.cpp',
 			'gs_options.cpp',
 			'gs_config.cpp',
+			'gs_shot_parameters.cpp',
 			'configuration_manager.cpp',
 			'gs_sim_interface.cpp',
 			'gs_gspro_interface.cpp',
@@ -259,4 +268,14 @@ custom_target('post_build2',
   command: [ 'cp', '-f', './pitrac_lm.p/gs_e6_response.cpp.o', '..'],
   build_by_default : true
 )
+
+summary({
+            'libav encoder' : enable_libav,
+            'drm preview' : enable_drm,
+            'egl preview' : enable_egl,
+            'qt preview' : enable_qt,
+            'OpenCV postprocessing' : enable_opencv,
+            'IMX500 postprocessing' : get_option('enable_imx500'),
+        },
+        bool_yn : true, section : 'Build configuration')
 

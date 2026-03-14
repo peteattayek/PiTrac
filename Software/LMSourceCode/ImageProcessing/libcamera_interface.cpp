@@ -760,7 +760,7 @@ bool ConfigureLibCameraOptions(const GolfSimCamera& camera, RPiCamEncoder& app, 
 
     SetLibCameraLoggingOff();
 
-    options->no_raw = true;  // See https://forums.raspberrypi.com/viewtopic.php?t=369927 - cameras won't work unless this is set.
+    options->Set().no_raw = true;  // See https://forums.raspberrypi.com/viewtopic.php?t=369927 - cameras won't work unless this is set.
 
     std::string shutter_speed_string;
     // Generally need to crank up gain due to short exposure time at high FPS.
@@ -775,38 +775,38 @@ bool ConfigureLibCameraOptions(const GolfSimCamera& camera, RPiCamEncoder& app, 
         shutter_speed_string = std::to_string((int)(1. / cropped_frame_rate_fps * 1000000.)) + "us";   // TBD - should be 1,000,000 for uS setting
     }
 
-    options->gain = camera_gain;
-    options->shutter.set(shutter_speed_string);   // TBD - should be 1,000,000 for uS setting
+    options->Set().gain = camera_gain;
+    options->Set().shutter.set(shutter_speed_string);   // TBD - should be 1,000,000 for uS setting
 
-	options->saturation = (camera_number == GsCameraNumber::kGsCamera1) ? LibCameraInterface::kCamera1Saturation : LibCameraInterface::kCamera2Saturation;
+	options->Set().saturation = (camera_number == GsCameraNumber::kGsCamera1) ? LibCameraInterface::kCamera1Saturation : LibCameraInterface::kCamera2Saturation;
 
-    GS_LOG_MSG(trace, "Saturation = " + std::to_string(options->saturation));
+    GS_LOG_MSG(trace, "Saturation = " + std::to_string(options->Set().saturation));
 
-    options->timeout.set("0ms");
+    options->Set().timeout.set("100000s");
 
     const CameraHardware::CameraModel  camera_model = GolfSimCamera::kSystemSlot1CameraType;
     if (camera_model != CameraHardware::CameraModel::InnoMakerIMX296GS_Mono) {
-        options->denoise = "cdn_off";
+        options->Set().denoise = "cdn_off";
     }
     else {
-        options->denoise = "auto";
+        options->Set().denoise = "auto";
     }
 
-        GS_LOG_TRACE_MSG(trace, "Camera denoise option set to: " + options->denoise);
-    options->framerate = cropped_frame_rate_fps;
-    options->nopreview = true;
-    options->lores_width = 0;
-    options->lores_height = 0;
-    options->viewfinder_width = 0;
-    options->viewfinder_height = 0;
-    options->info_text = "";
-    options->level = "4.2";
+        GS_LOG_TRACE_MSG(trace, "Camera denoise option set to: " + options->Set().denoise);
+    options->Set().framerate = cropped_frame_rate_fps;
+    options->Set().nopreview = true;
+    options->Set().lores_width = 0;
+    options->Set().lores_height = 0;
+    options->Set().viewfinder_width = 0;
+    options->Set().viewfinder_height = 0;
+    options->Set().info_text = "";
+    options->Set().level = "4.2";
 
     const CameraHardware::CameraOrientation  camera_orientation = (camera_number == GsCameraNumber::kGsCamera1) ? GolfSimCamera::kSystemSlot1CameraOrientation : GolfSimCamera::kSystemSlot2CameraOrientation;
 
     if (camera_orientation == CameraHardware::CameraOrientation::kUpsideDown) {
      // Tell libcamera to flip the image vertically back to where it should be
-        options->transform = libcamera::Transform::VFlip;
+        options->Set().transform = libcamera::Transform::VFlip;
         GS_LOG_MSG(trace, "Flipping still picture upside down.");
     }
     else {
@@ -815,28 +815,28 @@ bool ConfigureLibCameraOptions(const GolfSimCamera& camera, RPiCamEncoder& app, 
 
     // On the Pi5, there's no hardware H.264 encoding, so let's try to turn it off entirely
     // TBD - See video_options.cpp to consider other options like libav
-    options->codec = "yuv420";    // was h.264, but that no longer works on Pi5
+    options->Set().codec = "yuv420";    // was h.264, but that no longer works on Pi5
 
     if (GolfSimConfiguration::GetPiModel() == GolfSimConfiguration::PiModel::kRPi5) {
-        options->tuning_file = "/usr/share/libcamera/ipa/rpi/pisp/imx296.json";
+        options->Set().tuning_file = "/usr/share/libcamera/ipa/rpi/pisp/imx296.json";
     }
     else {
-        options->tuning_file = "/usr/share/libcamera/ipa/rpi/vc4/imx296.json";
+        options->Set().tuning_file = "/usr/share/libcamera/ipa/rpi/vc4/imx296.json";
     }
-    setenv("LIBCAMERA_RPI_TUNING_FILE", options->tuning_file.c_str(), 1);
+    setenv("LIBCAMERA_RPI_TUNING_FILE", options->Set().tuning_file.c_str(), 1);
 
     // TBD - We are switching away from having the post_process_file trigger the
     // dynamic loading of the motion_detection module.  Instead, hop[efully for speed,
     // we will use a statically-bound motion_detection module.  See ball_watcher.cpp
-    // options->post_process_file = LibCameraInterface::kCameraMotionDetectSettings;
+    // options->Set().post_process_file = LibCameraInterface::kCameraMotionDetectSettings;
 
     if (cropping_window_size[0] > 0 && cropping_window_size[1] > 0) {
-        options->width = cropping_window_size[0];
-        options->height = cropping_window_size[1];
+        options->Set().width = cropping_window_size[0];
+        options->Set().height = cropping_window_size[1];
     }
 
-    if (options->verbose >= 2)
-        options->Print();
+    if (options->Set().verbose >= 2)
+        options->Set().Print();
 
     return true;
 }
@@ -882,15 +882,15 @@ bool RetrieveCameraInfo(const GsCameraNumber camera_number, cv::Vec2i& resolutio
 
             if (options->Parse(1, argv))
             {
-                if (options->verbose >= 2)
-                    options->Print();
+                if (options->Set().verbose >= 2)
+                    options->Set().Print();
 
                 SetLibCameraLoggingOff();
 
-                options->no_raw = true;  // See https://forums.raspberrypi.com/viewtopic.php?t=369927
+                options->Set().no_raw = true;  // See https://forums.raspberrypi.com/viewtopic.php?t=369927
 
                 // Set the camera number (0 or 1, likely) when we have more than one camera
-                options->camera = (camera_number == GsCameraNumber::kGsCamera1 || !GolfSimOptions::GetCommandLineOptions().run_single_pi_) ? 0 : 1;
+                options->Set().camera = (camera_number == GsCameraNumber::kGsCamera1 || !GolfSimOptions::GetCommandLineOptions().run_single_pi_) ? 0 : 1;
 
                 // Get the camera open for a moment so that we can read its settings
                 app.OpenCamera();
@@ -1142,39 +1142,39 @@ LibcameraJpegApp* ConfigureForLibcameraStill(const GolfSimCamera& camera) {
 
         // Assume camera 1 will be at slot 0 in all cases.  Camera 2 will be at slot 1
         // only in a single Pi system.
-        options->camera = (camera_number == GsCameraNumber::kGsCamera1 || !GolfSimOptions::GetCommandLineOptions().run_single_pi_) ? 0 : 1;
+        options->Set().camera = (camera_number == GsCameraNumber::kGsCamera1 || !GolfSimOptions::GetCommandLineOptions().run_single_pi_) ? 0 : 1;
 
         // Shouldn't need a special gain to take a "normal" picture.   Default will be 1.0
         // from the command line options.
-        options->gain = camera_gain;
-        options->saturation = (camera_number == GsCameraNumber::kGsCamera1) ? LibCameraInterface::kCamera1Saturation : LibCameraInterface::kCamera2Saturation;
-        options->contrast = camera_contrast;
-        options->timeout.set("5s");
+        options->Set().gain = camera_gain;
+        options->Set().saturation = (camera_number == GsCameraNumber::kGsCamera1) ? LibCameraInterface::kCamera1Saturation : LibCameraInterface::kCamera2Saturation;
+        options->Set().contrast = camera_contrast;
+        options->Set().timeout.set("100000s");
         const CameraHardware::CameraModel  camera_model = GolfSimCamera::kSystemSlot1CameraType;
         if (camera_model != CameraHardware::CameraModel::InnoMakerIMX296GS_Mono) {
-            options->denoise = "cdn_off";
+            options->Set().denoise = "cdn_off";
         }
         else {
-            options->denoise = "auto";
+            options->Set().denoise = "auto";
         }
 
-        GS_LOG_TRACE_MSG(trace, "Camera denoise option set to: " + options->denoise);
-        options->immediate = true;  // TBD - Trying this for now.  May have to work on white balance too
-        options->awb = "indoor"; // TBD - Trying this for now.  May have to work on white balance too
-        options->nopreview = true;
-        options->viewfinder_width = 0;
-        options->viewfinder_height = 0;
-        options->shutter.set(std::to_string(still_shutter_time_uS) + "us");
+        GS_LOG_TRACE_MSG(trace, "Camera denoise option set to: " + options->Set().denoise);
+        options->Set().immediate = true;  // TBD - Trying this for now.  May have to work on white balance too
+        options->Set().awb = "indoor"; // TBD - Trying this for now.  May have to work on white balance too
+        options->Set().nopreview = true;
+        options->Set().viewfinder_width = 0;
+        options->Set().viewfinder_height = 0;
+        options->Set().shutter.set(std::to_string(still_shutter_time_uS) + "us");
         if (GolfSimOptions::GetCommandLineOptions().use_non_IR_camera_) {
-            options->shutter.set("12000us"); // uS
+            options->Set().shutter.set("12000us"); // uS
         }
-        options->info_text = "";
+        options->Set().info_text = "";
 
         const CameraHardware::CameraOrientation  camera_orientation = (camera_number == GsCameraNumber::kGsCamera1) ? GolfSimCamera::kSystemSlot1CameraOrientation : GolfSimCamera::kSystemSlot2CameraOrientation;
 
         if (camera_orientation == CameraHardware::CameraOrientation::kUpsideDown) {
     	    // Tell libcamera to flip the image vertically back to where it should be
-            options->transform = libcamera::Transform::VFlip;
+            options->Set().transform = libcamera::Transform::VFlip;
             GS_LOG_MSG(trace, "Flipping still picture upside down.");
         }
 	else {
@@ -1186,8 +1186,8 @@ LibcameraJpegApp* ConfigureForLibcameraStill(const GolfSimCamera& camera) {
             return nullptr;
         }
 
-        if (options->verbose >= 2)
-            options->Print();
+        if (options->Set().verbose >= 2)
+            options->Set().Print();
 
         app->OpenCamera();
         // The RGB flag still works for grayscale mono images
@@ -1428,60 +1428,61 @@ bool WaitForCam2Trigger(cv::Mat& return_image) {
         // On a single-pi system the one Pi 5 has both cameras.  And Camera 2 will be in slot 1
         // because Camera 1 is in slot 0.
         if (GolfSimOptions::GetCommandLineOptions().run_single_pi_) {
-            options->camera = 1;
+            options->Set().camera = 1;
         }
         else {
-            options->camera = 0;
+            options->Set().camera = 0;
         }
 
         if (GolfSimOptions::GetCommandLineOptions().system_mode_ == SystemMode::kCamera2Calibrate ||
             GolfSimOptions::GetCommandLineOptions().system_mode_ == SystemMode::kCamera2BallLocation ||
             GolfSimOptions::GetCommandLineOptions().system_mode_ == SystemMode::kCamera2AutoCalibrate) {
 
-            options->gain = LibCameraInterface::kCamera2CalibrateOrLocationGain;
+            options->Set().gain = LibCameraInterface::kCamera2CalibrateOrLocationGain;
         }
         else if (GolfSimClubs::GetCurrentClubType() == GolfSimClubs::kPutter) {
-            options->gain = LibCameraInterface::kCamera2PuttingGain;
-            options->contrast = LibCameraInterface::kCamera2PuttingContrast;
+            options->Set().gain = LibCameraInterface::kCamera2PuttingGain;
+            options->Set().contrast = LibCameraInterface::kCamera2PuttingContrast;
         }
         else {
             if (!GolfSimOptions::GetCommandLineOptions().lm_comparison_mode_) {
-                options->gain = LibCameraInterface::kCamera2Gain;
+                options->Set().gain = LibCameraInterface::kCamera2Gain;
             }
             else {
-                options->gain = LibCameraInterface::kCamera2ComparisonGain;
+                options->Set().gain = LibCameraInterface::kCamera2ComparisonGain;
             }
 
-            options->contrast = LibCameraInterface::kCamera2Contrast;
+            options->Set().contrast = LibCameraInterface::kCamera2Contrast;
         }
 
-        options->saturation = LibCameraInterface::kCamera2Saturation;
-    	GS_LOG_MSG(trace, "Flight camera saturation = " + std::to_string(options->saturation));
+        options->Set().saturation = LibCameraInterface::kCamera2Saturation;
+    	GS_LOG_MSG(trace, "Flight camera saturation = " + std::to_string(options->Set().saturation));
 
-        options->immediate = true;
-        options->timeout.set("0ms");  // Wait forever for external trigger
+        options->Set().immediate = true;
+	// JPMOD
+        options->Set().timeout.set("100000s");  // Wait forever for external trigger
         const CameraHardware::CameraModel  camera_model = GolfSimCamera::kSystemSlot1CameraType;
         if (camera_model != CameraHardware::CameraModel::InnoMakerIMX296GS_Mono) {
-            options->denoise = "cdn_off";
+            options->Set().denoise = "cdn_off";
         }
         else {
-            options->denoise = "auto";
+            options->Set().denoise = "auto";
         }
 
-        GS_LOG_TRACE_MSG(trace, "Camera denoise option set to: " + options->denoise);
-        options->nopreview = true;
+        GS_LOG_TRACE_MSG(trace, "Camera denoise option set to: " + options->Set().denoise);
+        options->Set().nopreview = true;
         // TBD - Currently, we are using the viewfinder stream to take the picture.  Should be corrected.
-        options->viewfinder_width = c.camera_hardware_.resolution_x_;
-        options->viewfinder_height = c.camera_hardware_.resolution_y_;
-        options->width = c.camera_hardware_.resolution_x_;
-        options->height = c.camera_hardware_.resolution_y_;
-        options->shutter.set("11111us"); // Not actually used for external triggering.  Just needs to be set to something
-        options->info_text = "";
+        options->Set().viewfinder_width = c.camera_hardware_.resolution_x_;
+        options->Set().viewfinder_height = c.camera_hardware_.resolution_y_;
+        options->Set().width = c.camera_hardware_.resolution_x_;
+        options->Set().height = c.camera_hardware_.resolution_y_;
+        options->Set().shutter.set("11111us"); // Not actually used for external triggering.  Just needs to be set to something
+        options->Set().info_text = "";
 
 	// We know we are using camera 2
         if (GolfSimCamera::kSystemSlot2CameraOrientation == CameraHardware::CameraOrientation::kUpsideDown) {
     	    // Tell libcamera to flip the image vertically back to where it should be
-            options->transform = libcamera::Transform::VFlip;
+            options->Set().transform = libcamera::Transform::VFlip;
             GS_LOG_MSG(trace, "Flipping still picture upside down.");
         }
 	else {
@@ -1493,8 +1494,8 @@ bool WaitForCam2Trigger(cv::Mat& return_image) {
             return false;
         }
 
-        if (options->verbose >= 2)
-            options->Print();
+        if (options->Set().verbose >= 2)
+            options->Set().Print();
 
         // This will block until the loop ends
         ball_flight_camera_event_loop(app, raw_image);

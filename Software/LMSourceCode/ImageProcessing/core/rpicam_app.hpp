@@ -135,7 +135,7 @@ public:
 	void OpenCamera();
 	void CloseCamera();
 
-        // MJLMOD - Now allowing flags to be sent to the viewfinder
+        // JPMOD - Now allowing flags to be sent to the viewfinder
         void ConfigureViewfinder(unsigned int flags = FLAG_STILL_NONE);
 	void ConfigureStill(unsigned int flags = FLAG_STILL_NONE);
 	void ConfigureVideo(unsigned int flags = FLAG_VIDEO_NONE);
@@ -188,7 +188,7 @@ public:
 	friend class BufferWriteSync;
 	friend class BufferReadSync;
 	friend class PostProcessor;
-	friend struct Options;
+	friend struct OptsInternal;
 
 protected:
 	std::unique_ptr<Options> options_;

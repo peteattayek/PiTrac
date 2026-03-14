@@ -79,6 +79,8 @@ Closes #
 ## Screenshots/Videos
 <!-- If applicable, add screenshots or videos demonstrating the change -->
 
+## AI (Vibe-Coded) Content Description
+<!-- Describe whether this PR contains any AI-generated code, and if so, the amount, location, etc. -->
 
 ## Checklist
 
