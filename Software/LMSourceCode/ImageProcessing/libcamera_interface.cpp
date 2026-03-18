@@ -806,7 +806,7 @@ bool ConfigureLibCameraOptions(const GolfSimCamera& camera, RPiCamEncoder& app, 
 
     if (camera_orientation == CameraHardware::CameraOrientation::kUpsideDown) {
      // Tell libcamera to flip the image vertically back to where it should be
-        options->Set().transform = libcamera::Transform::VFlip;
+        options->Set().transform = libcamera::Transform::VFlip | libcamera::Transform::HFlip;
         GS_LOG_MSG(trace, "Flipping still picture upside down.");
     }
     else {
@@ -1174,7 +1174,7 @@ LibcameraJpegApp* ConfigureForLibcameraStill(const GolfSimCamera& camera) {
 
         if (camera_orientation == CameraHardware::CameraOrientation::kUpsideDown) {
     	    // Tell libcamera to flip the image vertically back to where it should be
-            options->Set().transform = libcamera::Transform::VFlip;
+            options->Set().transform = libcamera::Transform::VFlip | libcamera::Transform::HFlip;
             GS_LOG_MSG(trace, "Flipping still picture upside down.");
         }
 	else {
@@ -1482,7 +1482,7 @@ bool WaitForCam2Trigger(cv::Mat& return_image) {
 	// We know we are using camera 2
         if (GolfSimCamera::kSystemSlot2CameraOrientation == CameraHardware::CameraOrientation::kUpsideDown) {
     	    // Tell libcamera to flip the image vertically back to where it should be
-            options->Set().transform = libcamera::Transform::VFlip;
+            options->Set().transform = libcamera::Transform::VFlip | libcamera::Transform::HFlip;
             GS_LOG_MSG(trace, "Flipping still picture upside down.");
         }
 	else {
