@@ -10,8 +10,10 @@ CPUWeight=50
 MemoryMax=512M
 User=@PITRAC_USER@
 Group=@PITRAC_GROUP@
+SupplementaryGroups=gpio spi i2c video
 DynamicUser=no
-WorkingDirectory=/usr/lib/pitrac/web-server
+RuntimeDirectory=pitrac-web
+WorkingDirectory=/run/pitrac-web
 Environment="HOME=@PITRAC_HOME@"
 Environment="USER=@PITRAC_USER@"
 Environment="PATH=/usr/bin:/usr/local/bin"

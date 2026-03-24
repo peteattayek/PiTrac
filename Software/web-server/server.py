@@ -34,12 +34,14 @@ from testing_tools_manager import TestingToolsManager
 
 logger = logging.getLogger(__name__)
 
+_SERVER_DIR = Path(__file__).resolve().parent
+
 
 class PiTracServer:
 
     def __init__(self):
         self.app = FastAPI(title="PiTrac Dashboard")
-        self.templates = Jinja2Templates(directory="templates")
+        self.templates = Jinja2Templates(directory=str(_SERVER_DIR / "templates"))
         self.connection_manager = ConnectionManager()
         self.shot_store = ShotDataStore()
         self.parser = ShotDataParser()
@@ -55,7 +57,7 @@ class PiTracServer:
         self.background_tasks: set[asyncio.Task] = set()
         IMAGES_DIR.mkdir(parents=True, exist_ok=True)
 
-        self.app.mount("/static", StaticFiles(directory="static"), name="static")
+        self.app.mount("/static", StaticFiles(directory=str(_SERVER_DIR / "static")), name="static")
         self.app.mount("/images", StaticFiles(directory=str(IMAGES_DIR)), name="images")
 
         self._setup_routes()

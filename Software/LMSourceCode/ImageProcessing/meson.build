@@ -70,7 +70,7 @@ libcamera_dep = dependency('libcamera', required : true)
 thread_dep = dependency('threads', required : true)
 opencv_dep = dependency('opencv4', required : true, version : '>=4.9.0', include_type: 'system',)
 
-lgpio_dep = dependency('lgpio', required : true)
+lgpio_dep = cxx.find_library('lgpio', required : true)
 fmt_dep = dependency('fmt', required : true)
 
 boost_dep = dependency('boost', method: 'pkg-config', version : '>=1.74.0', modules : ['timer', 'log', 'thread', 'filesystem', 'regex'])
