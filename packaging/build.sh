@@ -280,7 +280,7 @@ build_dev() {
 
     # Core libraries (libcamera-dev pulls in correct runtime version)
     for pkg in libcamera-dev libcamera-tools libfmt-dev libssl-dev \
-               libmsgpack-cxx-dev \
+               libmsgpack-cxx-dev liblgpio-dev \
                libapr1 libaprutil1 libapr1-dev libaprutil1-dev; do
         if ! dpkg -l | grep -q "^ii  $pkg"; then
             missing_deps+=("$pkg")
@@ -348,7 +348,7 @@ build_dev() {
         fi
     done
 
-    # Python runtime dependencies for CLI tool
+    # Python runtime dependencies
     for pkg in python3 python3-pip python3-yaml python3-opencv python3-numpy; do
         if ! dpkg -l | grep -q "^ii  $pkg"; then
             missing_deps+=("$pkg")
@@ -527,6 +527,9 @@ build_dev() {
         log_info "Force rebuild requested - cleaning build directory..."
         rm -rf build
     fi
+    
+    # Add back from PostINT for hardening
+    create_pkgconfig_files
 
     # Only run meson setup if build directory doesn't exist or force rebuild was requested
     if [[ ! -d "build" ]] || [[ "$FORCE_REBUILD" == "true" ]] || [[ "$FORCE_REBUILD" == "force" ]]; then
@@ -735,6 +738,9 @@ EOF
     fi
     
     INSTALL_USER="${SUDO_USER:-$(whoami)}"
+
+    # Add back from PostINT for hardening
+    usermod -a -G video,gpio,i2c,spi,dialout "$INSTALL_USER" 2>/dev/null || true
 
     # Install Python web server (always update)
     log_info "Installing/Updating PiTrac web server..."

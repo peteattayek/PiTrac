@@ -197,35 +197,6 @@ EOF
         fi
         log_success "Created lgpio.pc"
     fi
-    
-    # Create msgpack-cxx.pc if it doesn't exist
-    if [[ ! -f /usr/lib/pkgconfig/msgpack-cxx.pc ]]; then
-        log_info "Creating msgpack-cxx.pc pkg-config file..."
-        if [[ -n "$need_sudo" ]]; then
-            sudo tee /usr/lib/pkgconfig/msgpack-cxx.pc > /dev/null << 'EOF'
-prefix=/usr
-exec_prefix=${prefix}
-includedir=${prefix}/include
-
-Name: msgpack-cxx
-Description: MessagePack implementation for C++
-Version: 4.1.3
-Cflags: -I${includedir}
-EOF
-        else
-            cat > /usr/lib/pkgconfig/msgpack-cxx.pc << 'EOF'
-prefix=/usr
-exec_prefix=${prefix}
-includedir=${prefix}/include
-
-Name: msgpack-cxx
-Description: MessagePack implementation for C++
-Version: 4.1.3
-Cflags: -I${includedir}
-EOF
-        fi
-        log_success "Created msgpack-cxx.pc"
-    fi
 }
 
 # Get the actual user (not root) who is installing
@@ -608,7 +579,16 @@ install_python_dependencies() {
     fi
     
     log_info "Installing Python dependencies for web server..."
-    
+
+    # gpiozero (in requirements.txt) needs these system GPIO backends on Raspberry Pi OS.
+    # They're not available on PyPI so we install them via apt.
+    for pkg in python3-lgpio python3-rpi-lgpio; do
+        if ! dpkg -l | grep -q "^ii  $pkg"; then
+            log_info "Installing system GPIO backend: $pkg"
+            INITRD=No apt-get install -y "$pkg" 2>/dev/null || log_warn "Could not install $pkg"
+        fi
+    done
+
     if [[ $EUID -eq 0 ]]; then
         if pip3 install -r "$web_server_dir/requirements.txt" --break-system-packages --ignore-installed 2>/dev/null; then
             log_success "Python dependencies installed successfully"
@@ -855,27 +835,22 @@ configure_pitrac_apt_repo() {
 install_dependencies_from_apt() {
     log_info "Installing PiTrac dependencies from APT repository..."
 
+    # ========================================================================
+    # PiTrac custom dependency packages (from pitraclm.github.io/packages)
+    # ========================================================================
+    # lgpio is NOT here — system liblgpio1 is used instead.
+    # python3-lgpio/python3-rpi-lgpio depend on the RPi Foundation version
+    # and break if a custom build with a different version string is installed.
+    # liblgpio-dev is in the system deps block in build.sh.
+    # ========================================================================
     local packages=(
-        "liblgpio1"
-        "liblgpio-dev"
-        "libmsgpack-cxx-dev"
-        "libactivemq-cpp"
-        "libactivemq-cpp-dev"
-        "libopencv4.11"
-        "libopencv-dev"
+        "libmsgpack-cxx-dev"      # MessagePack C++ (header-only)
+        "libactivemq-cpp"         # ActiveMQ C++ client runtime
+        "libactivemq-cpp-dev"     # ActiveMQ C++ client headers
+        "libopencv4.11"           # OpenCV runtime (Pi5-optimized build)
+        "libopencv-dev"           # OpenCV development headers
+        "libonnxruntime1.17.3"    # ONNX Runtime with XNNPACK (1.22.x has Pi5 issues)
     )
-
-    # Add ONNX Runtime - using 1.17.3 for both distros (1.22.x has Pi5 issues)
-    local codename=$(detect_debian_codename)
-    case "$codename" in
-        bookworm|trixie)
-            packages+=("libonnxruntime1.17.3")
-            ;;
-        *)
-            log_warn "Unknown distribution, will attempt generic ONNX install"
-            packages+=("libonnxruntime1.17.3")
-            ;;
-    esac
 
     # Check which packages are available
     log_info "Verifying package availability..."

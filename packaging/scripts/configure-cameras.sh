@@ -148,10 +148,9 @@ configure_boot_config() {
     log_info "  Slot 2 type: ${slot2_type:-none}"
     log_info "  Has InnoMaker: $has_innomaker"
 
-    # Skip if no cameras detected
+    # Issue warning if no cameras detected, but continue to configure base system parameters
     if [[ "$num_cameras" -eq 0 ]]; then
-        log_warn "No cameras detected, skipping config.txt configuration"
-        return 0
+        log_warn "No cameras detected. Camera-specific overlays will be skipped, but base system parameters will be configured."
     fi
 
     backup_config_txt "$config_path"
@@ -186,6 +185,13 @@ camera_auto_detect=0"
 dtparam=spi=on"
     else
         log_info "  dtparam=spi=on already exists, skipping"
+    fi
+
+    if ! grep -q "^dtoverlay=spi1-2cs" "$config_path"; then
+        config_block="$config_block
+dtoverlay=spi1-2cs"
+    else
+        log_info "  dtoverlay=spi1-2cs already exists, skipping"
     fi
 
     if ! grep -q "^force_turbo=" "$config_path"; then
@@ -347,48 +353,43 @@ main() {
 
     log_info "Detecting connected cameras..."
     local camera_json
+    local num_cameras=0
 
-    if camera_json=$(sudo python3 /usr/lib/pitrac/web-server/camera_detector.py --json 2>/dev/null); then
-        if echo "$camera_json" | python3 -c "import sys, json; data=json.load(sys.stdin); sys.exit(0 if data.get('success', False) else 1)" 2>/dev/null; then
-            local num_cameras=$(echo "$camera_json" | python3 -c "import sys, json; data=json.load(sys.stdin); print(len(data.get('cameras', [])))")
+    # camera_detector.py exits non-zero when no cameras found, so ignore exit code
+    camera_json=$(sudo python3 /usr/lib/pitrac/web-server/camera_detector.py --json 2>/dev/null) || true
 
-            if [[ "$num_cameras" -eq 0 ]]; then
-                log_warn "No cameras detected - skipping camera configuration"
-                log_info "Camera configuration can be done manually later if needed"
-                exit 0
-            fi
+    if echo "$camera_json" | python3 -c "import sys, json; json.load(sys.stdin)" 2>/dev/null; then
+        num_cameras=$(echo "$camera_json" | python3 -c "import sys, json; data=json.load(sys.stdin); print(len(data.get('cameras', [])))")
 
-            log_success "Successfully detected ${num_cameras} camera(s)"
-
+        if [[ "$num_cameras" -gt 0 ]]; then
+            log_success "Detected ${num_cameras} camera(s)"
             echo "$camera_json" | python3 -c "
 import sys, json
 data = json.load(sys.stdin)
 for cam in data.get('cameras', []):
     print(f\"  Camera {cam['index']}: {cam['description']} on {cam['port']} (Type {cam['pitrac_type']})\")
 "
-
-            configure_boot_config "$camera_json"
-
-            if [[ -n "${SUDO_USER:-}" ]]; then
-                user_home=$(eval echo ~${SUDO_USER})
-            else
-                user_home="${HOME}"
-            fi
-            configure_user_settings "$camera_json" "${user_home}/.pitrac/config/user_settings.json"
-
-            log_success "Camera configuration completed successfully"
-            log_warn "Please reboot the system for camera configuration to take effect"
-
         else
-            log_error "Camera detection failed"
-            log_info "You can manually configure cameras later if needed"
-            exit 0
+            log_warn "No cameras detected - camera overlays will be skipped"
         fi
     else
-        log_warn "Could not run camera detection - skipping camera configuration"
-        log_info "This may be normal on non-Pi systems or if cameras are not connected"
-        exit 0
+        log_warn "Camera detection returned no usable output"
+        camera_json='{"cameras":[]}'
     fi
+
+    configure_boot_config "$camera_json"
+
+    if [[ "$num_cameras" -gt 0 ]]; then
+        if [[ -n "${SUDO_USER:-}" ]]; then
+            user_home=$(eval echo ~${SUDO_USER})
+        else
+            user_home="${HOME}"
+        fi
+        configure_user_settings "$camera_json" "${user_home}/.pitrac/config/user_settings.json"
+    fi
+
+    log_success "Configuration completed successfully"
+    log_warn "Please reboot the system for changes to take effect"
 }
 
 main "$@"
