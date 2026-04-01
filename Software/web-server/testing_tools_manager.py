@@ -169,8 +169,37 @@ class TestingToolsManager:
                 # Set the base directory to where our test images are
                 config_json["gs_config"]["testing"]["kBaseTestImageDir"] = str(self.test_images_dir) + "/"
                 config_json["gs_config"]["testing"]["kTwoImageTestTeedBallImage"] = image_filename
-                config_json["gs_config"]["testing"]["kTwoImageTestStrobedImage"] = image_filename
+                config_json["gs_config"]["testing"]["kTwoImageTestStrobedBallImage"] = image_filename
                 config_json["gs_config"]["testing"]["kTwoImageTestPreImage"] = ""  # Optional
+
+                with open(config_path, "w") as f:
+                    json.dump(config_json, f, indent=2)
+
+            # For sample image test or automated testing, set up test suite paths
+            if tool_id in ("test_images", "automated_testing"):
+                import json
+
+                test_suite_dir = Path("/usr/share/pitrac/test-suites/TestSuite_2025_02_07")
+                with open(config_path, "r") as f:
+                    config_json = json.load(f)
+
+                if "gs_config" not in config_json:
+                    config_json["gs_config"] = {}
+                if "testing" not in config_json["gs_config"]:
+                    config_json["gs_config"]["testing"] = {}
+
+                if tool_id == "test_images" and test_suite_dir.exists():
+                    # Use a matched pair from the test suite (Shot 1)
+                    teed_files = sorted(test_suite_dir.glob("*log_ball_final_found_ball_img_Shot_1_*"))
+                    strobed_files = sorted(test_suite_dir.glob("*log_cam2_last_strobed_img_Shot_1_*"))
+                    if teed_files and strobed_files:
+                        config_json["gs_config"]["testing"]["kBaseTestImageDir"] = str(test_suite_dir) + "/"
+                        config_json["gs_config"]["testing"]["kTwoImageTestTeedBallImage"] = teed_files[0].name
+                        config_json["gs_config"]["testing"]["kTwoImageTestStrobedBallImage"] = strobed_files[0].name
+
+                if tool_id == "automated_testing":
+                    config_json["gs_config"]["testing"]["kAutomatedTestSuiteDirectory"] = str(test_suite_dir) + "/"
+                    config_json["gs_config"]["testing"]["kAutomatedTestExpectedResultsCSV"] = "Uneekor Comparison 2025-02-07_Small_Test.csv"
 
                 with open(config_path, "w") as f:
                     json.dump(config_json, f, indent=2)
@@ -415,6 +444,9 @@ class TestingToolsManager:
             "onnx_preload": None,
             "onnx_warmup": None,
             "onnx_detection": [],
+            "ncnn_preload": None,
+            "ncnn_warmup": None,
+            "ncnn_detection": [],
             "opencv_fallback": [],
             "getball": [],
             "spin_detection": [],
@@ -445,6 +477,24 @@ class TestingToolsManager:
                 if match:
                     timing_data["onnx_detection"].append(int(match.group(1)))
 
+            # NCNN preload
+            elif "NCNN model preloaded in" in line:
+                match = re.search(r"in (\d+)ms", line)
+                if match:
+                    timing_data["ncnn_preload"] = int(match.group(1))
+
+            # NCNN warmup
+            elif "NCNN warmup complete" in line:
+                match = re.search(r"\((\d+) iterations\)", line)
+                if match:
+                    timing_data["ncnn_warmup"] = int(match.group(1))
+
+            # NCNN detection
+            elif "NCNN detected" in line and "balls in" in line:
+                match = re.search(r"in (\d+)ms", line)
+                if match:
+                    timing_data["ncnn_detection"].append(int(match.group(1)))
+
             # OpenCV DNN fallback
             elif "OpenCV DNN completed processing in" in line:
                 match = re.search(r"in (\d+) ms", line)
@@ -468,6 +518,8 @@ class TestingToolsManager:
             timing_data["onnx_preload"]
             or timing_data["onnx_warmup"]
             or timing_data["onnx_detection"]
+            or timing_data["ncnn_preload"]
+            or timing_data["ncnn_detection"]
             or timing_data["opencv_fallback"]
             or timing_data["getball"]
             or timing_data["spin_detection"]
@@ -482,16 +534,31 @@ class TestingToolsManager:
         summary.append("PERFORMANCE TIMING SUMMARY")
         summary.append("=" * 80)
 
-        if timing_data["onnx_preload"]:
+        if timing_data["ncnn_preload"] or timing_data["onnx_preload"]:
             summary.append(f"\n Initialization:")
-            summary.append(f"  ONNX Runtime Preload: {timing_data['onnx_preload']}ms")
-            if timing_data["onnx_warmup"]:
-                summary.append(f"  Final Warmup Inference: {timing_data['onnx_warmup']:.2f}ms")
+            if timing_data["ncnn_preload"]:
+                summary.append(f"  NCNN Model Preload: {timing_data['ncnn_preload']}ms")
+                if timing_data["ncnn_warmup"]:
+                    summary.append(f"  NCNN Warmup: {timing_data['ncnn_warmup']} iterations")
+            if timing_data["onnx_preload"]:
+                summary.append(f"  ONNX Runtime Preload: {timing_data['onnx_preload']}ms")
+                if timing_data["onnx_warmup"]:
+                    summary.append(f"  Final Warmup Inference: {timing_data['onnx_warmup']:.2f}ms")
 
         if timing_data["grayscale"]:
             avg_gray = sum(timing_data["grayscale"]) / len(timing_data["grayscale"])
             summary.append(f"\n Image Preprocessing:")
             summary.append(f"  Grayscale Conversion: {avg_gray:.0f}μs (avg of {len(timing_data['grayscale'])} ops)")
+
+        if timing_data["ncnn_detection"]:
+            avg_ncnn = sum(timing_data["ncnn_detection"]) / len(timing_data["ncnn_detection"])
+            summary.append(f"\n Ball Detection (NCNN):")
+            summary.append(f"  Average: {avg_ncnn:.0f}ms")
+            summary.append(f"  Count: {len(timing_data['ncnn_detection'])} detections")
+            if len(timing_data["ncnn_detection"]) > 1:
+                summary.append(
+                    f"  Range: {min(timing_data['ncnn_detection'])}ms - {max(timing_data['ncnn_detection'])}ms"
+                )
 
         if timing_data["onnx_detection"]:
             avg_onnx = sum(timing_data["onnx_detection"]) / len(timing_data["onnx_detection"])

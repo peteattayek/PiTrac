@@ -350,11 +350,11 @@ namespace golf_sim {
         // If we need to correct something, preserve the crop width and correct the offset.
         // NOTE - Camera resolutions are 1 greater than the greatest pixel position
         if ((((camera.camera_hardware_.resolution_x_ - 1) - crop_offset_x) + watching_crop_width) >= camera.camera_hardware_.resolution_x_) {
-            crop_offset_x = (camera.camera_hardware_.video_resolution_x_ - crop_offset_x) - 1;
+            crop_offset_x = (camera.camera_hardware_.resolution_x_ - crop_offset_x) - 1;
         }
 
         if ((((camera.camera_hardware_.resolution_y_ - 1) - crop_offset_y) + watching_crop_height) >= camera.camera_hardware_.resolution_y_) {
-            crop_offset_y = (camera.camera_hardware_.video_resolution_y_ - crop_offset_y) - 1;
+            crop_offset_y = (camera.camera_hardware_.resolution_y_ - crop_offset_y) - 1;
         }
 
         cv::Vec2i watching_crop_size = cv::Vec2i((uint)watching_crop_width, (uint)watching_crop_height);
@@ -369,19 +369,26 @@ namespace golf_sim {
             return true;
         }
 
-		// If the camera is flipped, the cropping has to be adjusted accordingly so that the crop offset is flipped vertically
+		// If the camera is flipped (VFlip + HFlip = 180-degree rotation), the cropping
+        // offset must be adjusted for both axes to match the rotated coordinate system.
         GsCameraNumber camera_number = camera.camera_hardware_.camera_number_;
         const CameraHardware::CameraOrientation  camera_orientation = (camera_number == GsCameraNumber::kGsCamera1) ? GolfSimCamera::kSystemSlot1CameraOrientation : GolfSimCamera::kSystemSlot2CameraOrientation;
 
         if (camera_orientation == CameraHardware::CameraOrientation::kUpsideDown) {
-            GS_LOG_TRACE_MSG(trace, "Original watching_crop_offset[1] = " + std:: to_string(watching_crop_offset[1]));
-            float half_screen_height = std::round(camera.camera_hardware_.video_resolution_y_ / 2);
+            GS_LOG_TRACE_MSG(trace, "Original watching_crop_offset = (" + std::to_string(watching_crop_offset[0]) + ", " + std::to_string(watching_crop_offset[1]) + ")");
+
+            float half_screen_width = std::round(camera.camera_hardware_.resolution_x_ / 2);
+            float half_screen_height = std::round(camera.camera_hardware_.resolution_y_ / 2);
+
+            // Reflect both axes around screen center for 180-degree rotation
+            watching_crop_offset[0] = half_screen_width - (watching_crop_offset[0] - half_screen_width);
             watching_crop_offset[1] = half_screen_height - (watching_crop_offset[1] - half_screen_height);
 
-	    // We essentially need to swap the top and bottom of the cropping rectangle 
+            // Swap the origin from bottom-right to top-left of the cropping rectangle
+            watching_crop_offset[0] -= watching_crop_size[0];
             watching_crop_offset[1] -= watching_crop_size[1];
 
-            GS_LOG_TRACE_MSG(trace, "Flipped watching_crop_offset[1] = " + std::to_string(watching_crop_offset[1]));
+            GS_LOG_TRACE_MSG(trace, "Flipped watching_crop_offset = (" + std::to_string(watching_crop_offset[0]) + ", " + std::to_string(watching_crop_offset[1]) + ")");
         }
 
         if (!SendCameraCroppingCommand(camera, watching_crop_size, watching_crop_offset)) {
@@ -806,7 +813,7 @@ bool ConfigureLibCameraOptions(const GolfSimCamera& camera, RPiCamEncoder& app, 
 
     if (camera_orientation == CameraHardware::CameraOrientation::kUpsideDown) {
      // Tell libcamera to flip the image vertically back to where it should be
-        options->Set().transform = libcamera::Transform::VFlip;
+        options->Set().transform = libcamera::Transform::VFlip | libcamera::Transform::HFlip;
         GS_LOG_MSG(trace, "Flipping still picture upside down.");
     }
     else {
@@ -1174,7 +1181,7 @@ LibcameraJpegApp* ConfigureForLibcameraStill(const GolfSimCamera& camera) {
 
         if (camera_orientation == CameraHardware::CameraOrientation::kUpsideDown) {
     	    // Tell libcamera to flip the image vertically back to where it should be
-            options->Set().transform = libcamera::Transform::VFlip;
+            options->Set().transform = libcamera::Transform::VFlip | libcamera::Transform::HFlip;
             GS_LOG_MSG(trace, "Flipping still picture upside down.");
         }
 	else {
@@ -1317,38 +1324,34 @@ bool CheckForBallEnhanced(GolfBall& ball, cv::Mat& img) {
     cv::Vec2i search_center = camera.GetExpectedBallCenter();
     
     if (use_yolo) {
-        if (!golf_sim::BallImageProc::PreloadYOLOModel()) {
-            GS_LOG_MSG(warning, "YOLO model not available, using legacy detection");
-        } else {
-            std::vector<GsCircle> detected_circles;
-            // Don't worry if there is no ball.  We're not certain there would be.
-            bool detected = golf_sim::BallImageProc::DetectBallsONNX(img, 
-                                                          golf_sim::BallImageProc::BallSearchMode::kFindPlacedBall,
-                                                          detected_circles, false);
-            
-            if (detected && !detected_circles.empty()) {
-                GsCircle best_circle;
-                float best_distance = FLT_MAX;
-                
-                for (const auto& circle : detected_circles) {
-                    float dx = circle[0] - search_center[0];
-                    float dy = circle[1] - search_center[1];
-                    float distance = sqrt(dx*dx + dy*dy);
-                    
-                    if (distance < best_distance) {
-                        best_distance = distance;
-                        best_circle = circle;
-                    }
-                }
-                
-                if (best_distance < 200) {
-                    ball.ball_circle_ = best_circle;
-                    ball.measured_radius_pixels_ = best_circle[2];
-                    ball.search_area_center_ = search_center;
-                    ball.search_area_radius_ = 200;
+        std::vector<GsCircle> detected_circles;
+        // Use the backend-aware dispatcher (routes to NCNN, ONNX Runtime, or OpenCV DNN)
+        bool detected = golf_sim::BallImageProc::DetectBalls(img,
+                                                      golf_sim::BallImageProc::BallSearchMode::kFindPlacedBall,
+                                                      detected_circles, false);
 
-                    return true;
+        if (detected && !detected_circles.empty()) {
+            GsCircle best_circle;
+            float best_distance = FLT_MAX;
+
+            for (const auto& circle : detected_circles) {
+                float dx = circle[0] - search_center[0];
+                float dy = circle[1] - search_center[1];
+                float distance = sqrt(dx*dx + dy*dy);
+
+                if (distance < best_distance) {
+                    best_distance = distance;
+                    best_circle = circle;
                 }
+            }
+
+            if (best_distance < 200) {
+                ball.ball_circle_ = best_circle;
+                ball.measured_radius_pixels_ = best_circle[2];
+                ball.search_area_center_ = search_center;
+                ball.search_area_radius_ = 200;
+
+                return true;
             }
         }
     }
@@ -1484,7 +1487,7 @@ bool WaitForCam2Trigger(cv::Mat& return_image) {
 	// We know we are using camera 2
         if (GolfSimCamera::kSystemSlot2CameraOrientation == CameraHardware::CameraOrientation::kUpsideDown) {
     	    // Tell libcamera to flip the image vertically back to where it should be
-            options->Set().transform = libcamera::Transform::VFlip;
+            options->Set().transform = libcamera::Transform::VFlip | libcamera::Transform::HFlip;
             GS_LOG_MSG(trace, "Flipping still picture upside down.");
         }
 	else {
