@@ -93,22 +93,25 @@ configure_libcamera() {
                 # Check if we need sudo
                 if [[ -w "$config_dir" ]]; then
                     cp "$example_file" "$config_file"
-                    sed -i 's/# *"camera_timeout_value_ms": *[0-9]*/"camera_timeout_value_ms": 1000000/' "$config_file"
+                    sed -i 's/# *"camera_timeout_value_ms": *[0-9][0-9]*/"camera_timeout_value_ms": 86400000/' "$config_file"
                 else
                     sudo cp "$example_file" "$config_file"
-                    sudo sed -i 's/# *"camera_timeout_value_ms": *[0-9]*/"camera_timeout_value_ms": 1000000/' "$config_file"
+                    sudo sed -i 's/# *"camera_timeout_value_ms": *[0-9][0-9]*/"camera_timeout_value_ms": 86400000/' "$config_file"
                 fi
                 log_success "Created ${config_file} with extended timeout"
             elif [[ -f "$config_file" ]]; then
-                if grep -q '# *"camera_timeout_value_ms"' "$config_file"; then
-                    log_info "Updating ${pipeline} camera timeout..."
+                if ! grep -q '"camera_timeout_value_ms": *86400000' "$config_file"; then
+                    log_info "Updating ${pipeline} camera timeout to 86400000ms..."
                     if [[ -w "$config_file" ]]; then
-                        sed -i 's/# *"camera_timeout_value_ms": *[0-9]*/"camera_timeout_value_ms": 1000000/' "$config_file"
+                        sed -i 's/# *"camera_timeout_value_ms": *[0-9][0-9]*/"camera_timeout_value_ms": 86400000/' "$config_file"
+                        sed -i 's/"camera_timeout_value_ms": *[0-9][0-9]*/"camera_timeout_value_ms": 86400000/' "$config_file"
                     else
-                        sudo sed -i 's/# *"camera_timeout_value_ms": *[0-9]*/"camera_timeout_value_ms": 1000000/' "$config_file"
+                        sudo sed -i 's/# *"camera_timeout_value_ms": *[0-9][0-9]*/"camera_timeout_value_ms": 86400000/' "$config_file"
+                        sudo sed -i 's/"camera_timeout_value_ms": *[0-9][0-9]*/"camera_timeout_value_ms": 86400000/' "$config_file"
                     fi
+                    log_success "Updated ${pipeline} camera timeout"
                 else
-                    log_info "${pipeline} config already configured"
+                    log_info "${pipeline} camera timeout already correct"
                 fi
             fi
         fi
@@ -719,7 +722,7 @@ install_dependencies_from_apt() {
         "libmsgpack-cxx-dev"      # MessagePack C++ (header-only)
         "libactivemq-cpp"         # ActiveMQ C++ client runtime
         "libactivemq-cpp-dev"     # ActiveMQ C++ client headers
-        "libopencv4.11"           # OpenCV runtime (Pi5-optimized build)
+        "libopencv4.13"           # OpenCV runtime (Pi5-optimized build)
         "libopencv-dev"           # OpenCV development headers
         "libncnn-dev"             # ncnn inference framework (static lib + headers)
         "libonnxruntime1.17.3"    # ONNX Runtime with XNNPACK (1.22.x has Pi5 issues)
